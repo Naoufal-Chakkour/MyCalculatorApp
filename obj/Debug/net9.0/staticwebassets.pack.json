@@ -1,0 +1,37 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg",
+      "PackagePath": "staticwebassets\\geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg"
+    },
+    {
+      "Id": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\style.css",
+      "PackagePath": "staticwebassets\\style.css"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0\\staticwebassets\\msbuild.MyCalculatorApp.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0\\staticwebassets\\msbuild.MyCalculatorApp.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0\\staticwebassets\\msbuild.build.MyCalculatorApp.props",
+      "PackagePath": "build\\MyCalculatorApp.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0\\staticwebassets\\msbuild.buildMultiTargeting.MyCalculatorApp.props",
+      "PackagePath": "buildMultiTargeting\\MyCalculatorApp.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0\\staticwebassets\\msbuild.buildTransitive.MyCalculatorApp.props",
+      "PackagePath": "buildTransitive\\MyCalculatorApp.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

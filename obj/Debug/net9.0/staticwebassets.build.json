@@ -1,0 +1,805 @@
+{
+  "Version": 1,
+  "Hash": "o9H3ZPiiuBswA9CP9L2ttjkbM1KJsy1BJNNvkGFCo7g=",
+  "Source": "MyCalculatorApp",
+  "BasePath": "_content/MyCalculatorApp",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "MyCalculatorApp\\wwwroot",
+      "Source": "MyCalculatorApp",
+      "ContentRoot": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\",
+      "BasePath": "_content/MyCalculatorApp",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\4zc6bzkra7-3mdov3n902.gz",
+      "SourceId": "MyCalculatorApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\",
+      "BasePath": "_content/MyCalculatorApp",
+      "RelativePath": "index#[.{fingerprint=3mdov3n902}]?.html.gz",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Alternative",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\index.html",
+      "AssetTraitName": "Content-Encoding",
+      "AssetTraitValue": "gzip",
+      "Fingerprint": "lzieeyyl8e",
+      "Integrity": "X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\index.html"
+    },
+    {
+      "Identity": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\xkiuzf9jbf-e9b7dryoly.gz",
+      "SourceId": "MyCalculatorApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\",
+      "BasePath": "_content/MyCalculatorApp",
+      "RelativePath": "style#[.{fingerprint=e9b7dryoly}]?.css.gz",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Alternative",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\style.css",
+      "AssetTraitName": "Content-Encoding",
+      "AssetTraitValue": "gzip",
+      "Fingerprint": "f3b3s5kdtc",
+      "Integrity": "66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\style.css"
+    },
+    {
+      "Identity": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg",
+      "SourceId": "MyCalculatorApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\",
+      "BasePath": "_content/MyCalculatorApp",
+      "RelativePath": "geometric-low-poly-graphic-repeat-pattern-background-free-vector#[.{fingerprint}]?.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "s0gn56kra5",
+      "Integrity": "JFLjFTMuxmWcReUA4rDxt/mZxngoYESTptVwAqdmquA=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg"
+    },
+    {
+      "Identity": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\index.html",
+      "SourceId": "MyCalculatorApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\",
+      "BasePath": "_content/MyCalculatorApp",
+      "RelativePath": "index#[.{fingerprint}]?.html",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "3mdov3n902",
+      "Integrity": "FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\index.html"
+    },
+    {
+      "Identity": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\style.css",
+      "SourceId": "MyCalculatorApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\",
+      "BasePath": "_content/MyCalculatorApp",
+      "RelativePath": "style#[.{fingerprint}]?.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "e9b7dryoly",
+      "Integrity": "PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\style.css"
+    }
+  ],
+  "Endpoints": [
+    {
+      "Route": "geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "53786"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "image/jpeg"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"JFLjFTMuxmWcReUA4rDxt/mZxngoYESTptVwAqdmquA=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 28 Feb 2025 15:01:55 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=3600, must-revalidate"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-JFLjFTMuxmWcReUA4rDxt/mZxngoYESTptVwAqdmquA="
+        }
+      ]
+    },
+    {
+      "Route": "geometric-low-poly-graphic-repeat-pattern-background-free-vector.s0gn56kra5.jpg",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "53786"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "image/jpeg"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"JFLjFTMuxmWcReUA4rDxt/mZxngoYESTptVwAqdmquA=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 28 Feb 2025 15:01:55 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "s0gn56kra5"
+        },
+        {
+          "Name": "label",
+          "Value": "geometric-low-poly-graphic-repeat-pattern-background-free-vector.jpg"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-JFLjFTMuxmWcReUA4rDxt/mZxngoYESTptVwAqdmquA="
+        }
+      ]
+    },
+    {
+      "Route": "index.3mdov3n902.html",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\4zc6bzkra7-3mdov3n902.gz",
+      "Selectors": [
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip",
+          "Quality": "0.001007049345"
+        }
+      ],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "992"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 20:46:19 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "W/\"FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk=\""
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "3mdov3n902"
+        },
+        {
+          "Name": "label",
+          "Value": "index.html"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk="
+        }
+      ]
+    },
+    {
+      "Route": "index.3mdov3n902.html",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\index.html",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "2791"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 20:46:19 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "3mdov3n902"
+        },
+        {
+          "Name": "label",
+          "Value": "index.html"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk="
+        }
+      ]
+    },
+    {
+      "Route": "index.3mdov3n902.html.gz",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\4zc6bzkra7-3mdov3n902.gz",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "992"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 20:46:19 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "3mdov3n902"
+        },
+        {
+          "Name": "label",
+          "Value": "index.html.gz"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ="
+        }
+      ]
+    },
+    {
+      "Route": "index.html",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\4zc6bzkra7-3mdov3n902.gz",
+      "Selectors": [
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip",
+          "Quality": "0.001007049345"
+        }
+      ],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "992"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 20:46:19 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "W/\"FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk=\""
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk="
+        }
+      ]
+    },
+    {
+      "Route": "index.html",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\index.html",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "2791"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 20:46:19 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-FYqRijNwyKybOfqbsypmwM26pJ52y+YibLc/hA+K5dk="
+        }
+      ]
+    },
+    {
+      "Route": "index.html.gz",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\4zc6bzkra7-3mdov3n902.gz",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "992"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 20:46:19 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-X7L5sUZ/ul/zP+JgyoExJEsOGBncXYGsvu/gsQdk9tQ="
+        }
+      ]
+    },
+    {
+      "Route": "style.css",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\xkiuzf9jbf-e9b7dryoly.gz",
+      "Selectors": [
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip",
+          "Quality": "0.001102535832"
+        }
+      ],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "906"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 21:22:26 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/css"
+        },
+        {
+          "Name": "ETag",
+          "Value": "W/\"PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY=\""
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY="
+        }
+      ]
+    },
+    {
+      "Route": "style.css",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\style.css",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "2931"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/css"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 21:22:26 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY="
+        }
+      ]
+    },
+    {
+      "Route": "style.css.gz",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\xkiuzf9jbf-e9b7dryoly.gz",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "906"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/css"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 21:22:26 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8="
+        }
+      ]
+    },
+    {
+      "Route": "style.e9b7dryoly.css",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\xkiuzf9jbf-e9b7dryoly.gz",
+      "Selectors": [
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip",
+          "Quality": "0.001102535832"
+        }
+      ],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "906"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 21:22:26 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/css"
+        },
+        {
+          "Name": "ETag",
+          "Value": "W/\"PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY=\""
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "e9b7dryoly"
+        },
+        {
+          "Name": "label",
+          "Value": "style.css"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY="
+        }
+      ]
+    },
+    {
+      "Route": "style.e9b7dryoly.css",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\wwwroot\\style.css",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "2931"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/css"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 21:22:26 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "e9b7dryoly"
+        },
+        {
+          "Name": "label",
+          "Value": "style.css"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-PjLbSny7YOKGrXAhRvbO34rL2aJjIoTgqUiPsXOOcxY="
+        }
+      ]
+    },
+    {
+      "Route": "style.e9b7dryoly.css.gz",
+      "AssetFile": "C:\\Users\\nn\\Desktop\\MyCalculatorApp\\obj\\Debug\\net9.0\\compressed\\xkiuzf9jbf-e9b7dryoly.gz",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "906"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/css"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Fri, 07 Mar 2025 21:22:26 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        },
+        {
+          "Name": "Content-Encoding",
+          "Value": "gzip"
+        },
+        {
+          "Name": "Vary",
+          "Value": "Content-Encoding"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "e9b7dryoly"
+        },
+        {
+          "Name": "label",
+          "Value": "style.css.gz"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-66rI7n7uX+oDQdqPfUC8e6FaxJw//HCKuoYx71wxCM8="
+        }
+      ]
+    }
+  ]
+}
