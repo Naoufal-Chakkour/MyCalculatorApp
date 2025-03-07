@@ -1,6 +1,6 @@
 body {
     text-align: center;
-    background-image: url(/photo.jpg);
+    background-image: url(../photo.jpg);
     background-size: contain;
     background-repeat: repeat;
     color: #000;
