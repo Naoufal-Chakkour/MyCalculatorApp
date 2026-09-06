@@ -1,77 +1,474 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>آلة حاسبة</title>
+
+    <title>Math Solver</title>
+
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-    <h2>أدخل رقمين لإجراء عملية حسابية</h2>
+<div class="calculator">
 
-    <div class="calculator">
-        <div class="buttons">
-            <button onclick="addNumber(1)">1</button>
-            <button onclick="addNumber(2)">2</button>
-            <button onclick="addNumber(3)">3</button>
-            <button onclick="addNumber(4)">4</button>
-            <button onclick="addNumber(5)">5</button>
-            <button onclick="addNumber(6)">6</button>
-            <button onclick="addNumber(7)">7</button>
-            <button onclick="addNumber(8)">8</button>
-            <button onclick="addNumber(9)">9</button>
-            <button onclick="addNumber(0)">0</button>
-        </div>
-
-        <input type="text" id="num1" readonly>
-        <select id="operation" onchange="switchToNum2()">
-            <option value="">اختر عملية</option>
-            <option value="add">+</option>
-            <option value="subtract">-</option>
-            <option value="multiply">×</option>
-            <option value="divide">÷</option>
-            <option value="modulo">%</option>
-        </select>
-        <input type="text" id="num2" readonly>
-        <br><br>
-        <button onclick="calculate()">=</button>
-        <br><br>
-        <input type="text" id="result" readonly>
+    <div class="app-title">
+        <h1>Math Solver</h1>
+        <p>حل المعادلات خطوة بخطوة</p>
     </div>
 
-    <script>
-        let currentInput = 'num1'; 
+    <div class="tabs">
 
-        function addNumber(num) {
-            document.getElementById(currentInput).value += num;
-        }
+        <button class="tab-btn active"
+                onclick="switchTab('calc')">
+            حاسبة
+        </button>
 
-        function switchToNum2() {
-            let operation = document.getElementById('operation').value;
-            if (operation) {
-                currentInput = 'num2'; 
-            }
-        }
+        <button class="tab-btn"
+                onclick="switchTab('quad')">
+            تربيعية
+        </button>
 
-        function calculate() {
-            let num1 = document.getElementById('num1').value;
-            let num2 = document.getElementById('num2').value;
-            let operation = document.getElementById('operation').value;
+        <button class="tab-btn"
+                onclick="switchTab('poly')">
+            معادلة
+        </button>
 
-            fetch('/calculate', {
-                method: 'POST',
-                body: new URLSearchParams({ num1, num2, operation }),
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            })
-            .then(response => response.text())
-            .then(result => document.getElementById('result').value = result);
-        }
-    </script>
-    <footer>
-        <p>Copyright &copy; | All right reserved</p>
-    </footer>
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- CALCULATOR -->
+    <!-- ================================================= -->
+
+    <div id="calcTab"
+         class="tab-content active">
+
+        <input
+            type="text"
+            id="display"
+            readonly
+            placeholder="اكتب تعبيراً..." >
+
+        <div class="operations">
+
+            <button class="op-btn"
+                    onclick="insert('+')">+</button>
+
+            <button class="op-btn"
+                    onclick="insert('-')">−</button>
+
+            <button class="op-btn"
+                    onclick="insert('*')">×</button>
+
+            <button class="op-btn"
+                    onclick="insert('/')">÷</button>
+
+            <button class="op-btn"
+                    onclick="insert('%')">%</button>
+
+            <button class="op-btn"
+                    onclick="insert('^')">^</button>
+
+            <button class="op-btn"
+                    onclick="insert('(')">(</button>
+
+            <button class="op-btn"
+                    onclick="insert(')')">)</button>
+
+        </div>
+
+        <button class="toggle-advanced"
+                onclick="toggleAdvanced()">
+
+            <span>عمليات متقدمة</span>
+            <span id="arrow">▼</span>
+
+        </button>
+
+        <div class="operations advanced"
+             id="advancedOps">
+
+            <button class="op-btn"
+                    onclick="insertFunc('sin')">
+                sin
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('cos')">
+                cos
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('tan')">
+                tan
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('asin')">
+                sin⁻¹
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('acos')">
+                cos⁻¹
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('atan')">
+                tan⁻¹
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('log')">
+                log
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('ln')">
+                ln
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('sqrt')">
+                √
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertFunc('exp')">
+                eˣ
+            </button>
+
+            <button class="op-btn"
+                    onclick="insert('pi')">
+                π
+            </button>
+
+            <button class="op-btn"
+                    onclick="insert('e')">
+                e
+            </button>
+
+        </div>
+
+        <div class="buttons">
+
+            <button onclick="insert('1')">1</button>
+            <button onclick="insert('2')">2</button>
+            <button onclick="insert('3')">3</button>
+
+            <button onclick="insert('4')">4</button>
+            <button onclick="insert('5')">5</button>
+            <button onclick="insert('6')">6</button>
+
+            <button onclick="insert('7')">7</button>
+            <button onclick="insert('8')">8</button>
+            <button onclick="insert('9')">9</button>
+
+            <button class="btn-clear"
+                    onclick="clearAll()">
+                C
+            </button>
+
+            <button onclick="insert('0')">0</button>
+
+            <button class="btn-backspace"
+                    onclick="backspace()">
+                ⌫
+            </button>
+
+        </div>
+
+        <button class="btn-equal"
+                onclick="calculate()">
+            =
+        </button>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- QUADRATIC -->
+    <!-- ================================================= -->
+
+    <div id="quadTab"
+         class="tab-content">
+
+        <p class="quad-formula">
+            ax² + bx + c = 0
+        </p>
+
+        <p class="quad-hint">
+            اترك a = 0 إذا أردت حل معادلة من الدرجة الأولى.
+        </p>
+
+        <div class="quad-inputs">
+
+            <input
+                type="text"
+                id="coefA"
+                placeholder="a">
+
+            <input
+                type="text"
+                id="coefB"
+                placeholder="b">
+
+            <input
+                type="text"
+                id="coefC"
+                placeholder="c">
+
+        </div>
+
+        <button class="btn-equal"
+                onclick="solveQuadratic()">
+            حل المعادلة
+        </button>
+
+        <div class="result-with-toggle">
+
+            <textarea
+                id="quadResult"
+                readonly
+                class="poly-result"
+                placeholder="الحل">
+            </textarea>
+
+            <button
+                class="btn-toggle-decimal"
+                onclick="toggleQuadDecimal()">
+                ≈
+            </button>
+
+        </div>
+
+        <button class="btn-steps"
+                onclick="openStepsModal(quadStepsText)">
+            📖 خطوات الحل
+        </button>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- GENERAL EQUATION -->
+    <!-- ================================================= -->
+
+    <div id="polyTab"
+         class="tab-content">
+
+        <p class="quad-hint">
+            اكتب أي معادلة بدلالة x.
+        </p>
+
+        <div class="examples">
+
+            <button onclick="setExample('2x+5=17')">
+                2x+5=17
+            </button>
+
+            <button onclick="setExample('x^2-5x+6=0')">
+                x²−5x+6=0
+            </button>
+
+            <button onclick="setExample('sin(x)=0.5')">
+                sin(x)=0.5
+            </button>
+
+            <button onclick="setExample('ln(x)=2')">
+                ln(x)=2
+            </button>
+
+            <button onclick="setExample('2^x=16')">
+                2ˣ=16
+            </button>
+
+        </div>
+
+        <input
+            type="text"
+            id="polyDisplay"
+            readonly
+            placeholder="اكتب المعادلة هنا">
+
+        <div class="operations">
+
+            <button class="op-btn"
+                    onclick="insertPoly('x')">
+                x
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('+')">
+                +
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('-')">
+                −
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('*')">
+                ×
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('/')">
+                ÷
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('^')">
+                ^
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('(')">
+                (
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly(')')">
+                )
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('=')">
+                =
+            </button>
+
+            <button class="op-btn"
+                    onclick="insertPoly('.')">
+                .
+            </button>
+
+        </div>
+
+        <div class="function-buttons">
+
+            <button onclick="insertPoly('sin(x)')">
+                sin
+            </button>
+
+            <button onclick="insertPoly('cos(x)')">
+                cos
+            </button>
+
+            <button onclick="insertPoly('tan(x)')">
+                tan
+            </button>
+
+            <button onclick="insertPoly('ln(x)')">
+                ln
+            </button>
+
+            <button onclick="insertPoly('log(x)')">
+                log
+            </button>
+
+            <button onclick="insertPoly('sqrt(x)')">
+                √
+            </button>
+
+            <button onclick="insertPoly('exp(x)')">
+                eˣ
+            </button>
+
+        </div>
+
+        <div class="buttons">
+
+            <button onclick="insertPoly('1')">1</button>
+            <button onclick="insertPoly('2')">2</button>
+            <button onclick="insertPoly('3')">3</button>
+
+            <button onclick="insertPoly('4')">4</button>
+            <button onclick="insertPoly('5')">5</button>
+            <button onclick="insertPoly('6')">6</button>
+
+            <button onclick="insertPoly('7')">7</button>
+            <button onclick="insertPoly('8')">8</button>
+            <button onclick="insertPoly('9')">9</button>
+
+            <button class="btn-clear"
+                    onclick="clearPoly()">
+                C
+            </button>
+
+            <button onclick="insertPoly('0')">0</button>
+
+            <button class="btn-backspace"
+                    onclick="backspacePoly()">
+                ⌫
+            </button>
+
+        </div>
+
+        <button class="btn-equal"
+                onclick="solvePolynomialExpr()">
+            حل المعادلة
+        </button>
+
+        <textarea
+            id="polyResult"
+            readonly
+            class="poly-result"
+            placeholder="الحل">
+        </textarea>
+
+        <button class="btn-steps"
+                onclick="openStepsModal(polyStepsText)">
+            📖 خطوات الحل
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- MODAL -->
+<!-- ================================================= -->
+
+<div id="stepsModal"
+     class="modal-overlay">
+
+    <div class="modal-box">
+
+        <div class="modal-header">
+
+            <span>
+                📖 خطوات الحل
+            </span>
+
+            <button
+                class="modal-close"
+                onclick="closeStepsModal()">
+                ✕
+            </button>
+
+        </div>
+
+        <pre
+            id="stepsContent"
+            class="modal-content">
+        </pre>
+
+    </div>
+
+</div>
+
+
+<footer>
+    Math Solver © 2026
+</footer>
+
+
+<script src="script.js"></script>
 
 </body>
-
 </html>
