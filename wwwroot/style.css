@@ -2,641 +2,453 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
+    height: 120vh;
+    overflow: hidden;
     margin: 0;
-    min-height: 100vh;
-    padding: 20px;
+    padding: 0;
+}
 
+body {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-
-    background:
-        linear-gradient(
-            135deg,
-            #151522,
-            #24243a
-        );
-
+    background: linear-gradient(135deg, #151522, #24243a);
     color: #fff;
-
-    font-family:
-        "Segoe UI",
-        Arial,
-        sans-serif;
+    font-family: "Segoe UI", Arial, sans-serif;
 }
 
 .calculator {
+    max-height: 98vh;
+    overflow-y: auto;
+    padding: 12px;
     width: 100%;
-    max-width: 430px;
-
-    padding: 24px;
-
+    max-width: 420px;
     background: #26263f;
-
     border-radius: 22px;
-
-    box-shadow:
-        0 15px 45px
-        rgba(0, 0, 0, .5);
+    box-shadow: 0 15px 45px rgba(0, 0, 0, .5);
 }
 
-
-/* TITLE */
-
-.app-title {
-    text-align: center;
-    margin-bottom: 18px;
+/* إخفاء شريط التمرير للجمال */
+.calculator::-webkit-scrollbar {
+    width: 4px;
+}
+.calculator::-webkit-scrollbar-thumb {
+    background: #14b8a6;
+    border-radius: 4px;
 }
 
-.app-title h1 {
-    margin: 0;
+/* ---------- تقليل المسافات ---------- */
+.app-title { margin-bottom: 6px; text-align: center; }
+.app-title h1 { margin: 0; font-size: 22px; color: #14b8a6; }
+.app-title p { margin: 2px 0 0; font-size: 12px; color: #888; }
 
-    font-size: 27px;
-
-    color: #14b8a6;
-}
-
-.app-title p {
-    margin: 5px 0 0;
-
-    font-size: 12px;
-
-    color: #888;
-}
-
-
-/* TABS */
-
-.tabs {
-    display: flex;
-    gap: 8px;
-
-    margin-bottom: 16px;
-}
-
+.tabs { display: flex; gap: 6px; margin-bottom: 6px; }
 .tab-btn {
     flex: 1;
-
-    height: 40px;
-
+    height: 34px;
     border: 0;
     border-radius: 10px;
-
     background: #33334d;
-
     color: #aaa;
-
     cursor: pointer;
-
     transition: .2s;
 }
-
-.tab-btn:hover {
-    background: #41415f;
-}
-
+.tab-btn:hover { background: #41415f; }
 .tab-btn.active {
     background: #14b8a6;
     color: #000;
-
     font-weight: bold;
 }
 
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-/* TABS CONTENT */
-
-.tab-content {
-    display: none;
+/* ============================================================
+   الاتجاه: الأزرار (أرقام/عمليات/أقواس) دائمًا من اليسار لليمين
+   بصرف النظر عن اتجاه الصفحة (rtl) — هذا يمنع:
+   1) انعكاس ترتيب الأزرار (1،2،3 بدل 3،2،1)
+   2) انعكاس شكل الأقواس ( و ) بصريًا (مشكلة انعكاس bidi المعروفة)
+   ============================================================ */
+.operations,
+.buttons,
+.function-buttons,
+.examples,
+.quad-inputs {
+    direction: ltr;
 }
 
-.tab-content.active {
-    display: block;
+/* ============================================================
+   حقول العرض/النتائج: اتجاه تلقائي (dir="auto" في الـHTML)
+   عربي → يمين، أرقام/فرنسي → يسار. لا نفرض اتجاهًا هنا حتى
+   يعمل dir="auto" بشكل صحيح.
+   ============================================================ */
+#display,
+#polyDisplay,
+.poly-result,
+#quadResult {
+    unicode-bidi: plaintext;
 }
 
-
-/* DISPLAY */
+#coefA,
+#coefB,
+#coefC {
+    direction: ltr;
+    text-align: center;
+}
 
 #display,
 #polyDisplay {
     width: 100%;
-    height: 62px;
-
-    margin-bottom: 15px;
-
-    padding: 0 15px;
-
+    height: 48px;
+    margin-bottom: 8px;
+    padding: 0 12px;
     border: 0;
     border-radius: 12px;
-
     background: #14b8a6;
-
     color: #000;
-
-    font-size: 20px;
+    font-size: 18px;
     font-weight: bold;
-
-    text-align: left;
-    direction: ltr;
-
     overflow-x: auto;
 }
-
-
-/* OPERATIONS */
 
 .operations {
     display: grid;
-
-    grid-template-columns:
-        repeat(4, 1fr);
-
-    gap: 8px;
-
-    margin-bottom: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-bottom: 4px;
 }
-
 .op-btn {
-    height: 42px;
-
+    height: 30px;
     border: 0;
     border-radius: 10px;
-
     background: #3a3a5c;
-
     color: #fff;
-
-    font-size: 15px;
-
+    font-size: 14px;
     cursor: pointer;
-
     transition: .15s;
 }
-
-.op-btn:hover {
-    background: #4a4a75;
-}
-
-.op-btn:active {
-    transform: scale(.95);
-}
-
-
-/* ADVANCED */
+.op-btn:hover { background: #4a4a75; }
+.op-btn:active { transform: scale(.95); }
 
 .toggle-advanced {
     width: 100%;
-    height: 38px;
-
-    margin-bottom: 10px;
-
+    height: 30px;
+    margin-bottom: 6px;
     border: 1px solid #444;
     border-radius: 10px;
-
     background: transparent;
-
     color: #aaa;
-
     cursor: pointer;
-
     display: flex;
-
     justify-content: center;
     align-items: center;
+    gap: 6px;
+}
+.toggle-advanced:hover { background: #33334d; }
 
+/* ============================================================
+   الدرج الجانبي: ينفتح من اليمين فوق المحتوى بدل التمدد
+   للأسفل، حتى لا تحتاج الصفحة للتمرير لرؤية بقية الأزرار.
+   ============================================================ */
+.side-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: 260px;
+    max-width: 82vw;
+    background: #1e1e32;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, .55);
+    transform: translateX(100%);
+    transition: transform .28s ease;
+    z-index: 620;
+    overflow-y: auto;
+    padding: 56px 12px 20px;
+    display: grid;
+    grid-auto-rows: min-content;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
+    direction: ltr;
+}
+.side-drawer.open {
+    transform: translateX(0);
+}
+.side-drawer .op-btn,
+.side-drawer button {
+    height: 40px;
+    font-size: 14px;
+}
+.side-drawer-title {
+    grid-column: 1 / -1;
+    color: #14b8a6;
+    font-size: 13px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 4px;
 }
 
-.advanced {
-    max-height: 0;
-
-    overflow: hidden;
-
-    opacity: 0;
-
-    margin-bottom: 0;
-
-    transition:
-        max-height .3s,
-        opacity .3s;
+.drawer-backdrop {
+    display: none;
 }
+.drawer-backdrop.open { display: block; }
 
-.advanced.open {
-    max-height: 400px;
-
-    opacity: 1;
-
-    margin-bottom: 10px;
+.drawer-close-btn {
+    grid-column: 1 / -1;
+    height: 34px;
+    background: #e74c3c;
+    color: #fff;
+    border: 0;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 6px;
+    cursor: pointer;
 }
-
-
-/* NUMBERS */
+.drawer-close-btn:hover { background: #c0392b; }
 
 .buttons {
     display: grid;
-
-    grid-template-columns:
-        repeat(3, 1fr);
-
-    gap: 10px;
-
-    margin-bottom: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin-bottom: 5px;
 }
-
 button {
-    height: 50px;
-
+    height: 36px;
     border: 0;
     border-radius: 10px;
-
     background: #3a3a5c;
-
     color: #fff;
-
-    font-size: 17px;
-
+    font-size: 15px;
     cursor: pointer;
-
     transition: .15s;
 }
+button:hover { background: #4a4a75; }
+button:active { transform: scale(.95); }
 
-button:hover {
-    background: #4a4a75;
-}
-
-button:active {
-    transform: scale(.95);
-}
-
-
-/* CLEAR */
-
-.btn-clear {
-    background: #e74c3c;
-}
-
-.btn-clear:hover {
-    background: #c0392b;
-}
-
-
-/* BACKSPACE */
-
-.btn-backspace {
-    background: #f39c12;
-}
-
-.btn-backspace:hover {
-    background: #d68910;
-}
-
-
-/* EQUAL */
+.btn-clear { background: #e74c3c; }
+.btn-clear:hover { background: #c0392b; }
+.btn-backspace { background: #f39c12; }
+.btn-backspace:hover { background: #d68910; }
 
 .btn-equal {
     width: 100%;
-
+    height: 38px;
     background: #14b8a6;
-
     color: #000;
-
-    font-size: 19px;
+    font-size: 18px;
     font-weight: bold;
 }
-
-.btn-equal:hover {
-    background: #0d9488;
-}
-
-
-/* STEPS */
+.btn-equal:hover { background: #0d9488; }
 
 .btn-steps {
     width: 100%;
-
-    height: 44px;
-
-    margin-top: 10px;
-
+    height: 32px;
+    margin-top: 4px;
     background: #6366f1;
-
-    font-size: 14px;
+    font-size: 13px;
 }
-
-.btn-steps:hover {
-    background: #4f46e5;
-}
-
-
-/* QUADRATIC */
+.btn-steps:hover { background: #4f46e5; }
 
 .quad-formula {
-    margin: 10px 0 5px;
-
+    margin: 4px 0 2px;
     color: #14b8a6;
-
-    font-size: 21px;
+    font-size: 18px;
     font-weight: bold;
-
     direction: ltr;
     text-align: center;
 }
-
 .quad-hint {
     color: #888;
-
-    font-size: 12px;
-
+    font-size: 11px;
     text-align: center;
-
-    line-height: 1.7;
+    line-height: 1.5;
 }
-
 .quad-inputs {
     display: grid;
-
-    grid-template-columns:
-        repeat(3, 1fr);
-
-    gap: 10px;
-
-    margin: 15px 0;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 6px 0;
 }
-
-input[type="text"] {
+.quad-inputs input {
     width: 100%;
-    height: 46px;
-
-    padding: 0 12px;
-
+    height: 34px;
+    padding: 0 10px;
     border: 0;
     border-radius: 10px;
-
     background: #33334d;
-
     color: #fff;
-
-    font-size: 16px;
-
+    font-size: 15px;
     text-align: center;
-
     outline: none;
 }
-
-input[type="text"]:focus {
-    box-shadow:
-        0 0 0 2px #14b8a6;
+.quad-inputs input:focus {
+    box-shadow: 0 0 0 2px #14b8a6;
 }
-
-
-/* RESULTS */
 
 .poly-result {
     width: 100%;
-
-    min-height: 95px;
-
-    margin-top: 15px;
-
-    padding: 13px;
-
+    min-height: 50px;
+    margin-top: 5px;
+    padding: 10px;
     border: 0;
     border-radius: 12px;
-
     background: #14b8a6;
-
     color: #000;
-
     font-family: inherit;
-
     font-size: 14px;
-
     font-weight: bold;
-
-    line-height: 1.7;
-
+    line-height: 1.5;
     resize: none;
-
-    direction: rtl;
-
-    text-align: right;
 }
-
 .result-with-toggle {
     display: flex;
-
     gap: 8px;
-
     align-items: flex-start;
 }
-
-.result-with-toggle
-.poly-result {
-    margin-top: 15px;
-
+.result-with-toggle .poly-result {
+    margin-top: 5px;
     flex: 1;
 }
-
 .btn-toggle-decimal {
-    width: 45px;
-
-    height: 45px;
-
-    margin-top: 15px;
-
+    width: 38px;
+    height: 38px;
+    margin-top: 5px;
     background: #6366f1;
-
-    font-size: 17px;
+    font-size: 16px;
 }
-
-.btn-toggle-decimal:hover {
-    background: #4f46e5;
-}
-
-
-/* EXAMPLES */
+.btn-toggle-decimal:hover { background: #4f46e5; }
 
 .examples {
     display: flex;
-
-    gap: 6px;
-
+    gap: 4px;
     overflow-x: auto;
-
-    margin-bottom: 10px;
-
-    padding-bottom: 5px;
+    margin-bottom: 6px;
+    padding-bottom: 3px;
 }
-
 .examples button {
     flex-shrink: 0;
-
     width: auto;
-    height: 34px;
-
-    padding: 0 10px;
-
+    height: 26px;
+    padding: 0 8px;
     background: #33334d;
-
-    font-size: 11px;
+    font-size: 10px;
 }
-
-
-/* FUNCTIONS */
 
 .function-buttons {
     display: grid;
-
-    grid-template-columns:
-        repeat(4, 1fr);
-
-    gap: 7px;
-
-    margin-bottom: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
 }
-
 .function-buttons button {
-    height: 38px;
-
+    height: 30px;
     background: #3a3a5c;
-
-    font-size: 13px;
+    font-size: 12px;
 }
 
+.chart-close-btn {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: #e74c3c;
+    color: #fff;
+    border: 0;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+}
+.chart-close-btn:hover { background: #c0392b; }
 
-/* MODAL */
+#chartContainer {
+    margin-top: 12px;
+    width: 100%;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    display: none;
+    position: relative;
+    background: #1e1e32;
+    border-radius: 12px;
+    padding: 8px;
+}
 
 .modal-overlay {
     display: none;
-
     position: fixed;
-
     inset: 0;
-
     z-index: 1000;
-
-    padding: 20px;
-
-    background:
-        rgba(0, 0, 0, .75);
-
+    padding: 15px;
+    background: rgba(0, 0, 0, .75);
     align-items: center;
     justify-content: center;
 }
-
-.modal-overlay.open {
-    display: flex;
-}
-
+.modal-overlay.open { display: flex; }
 .modal-box {
     width: 100%;
-
-    max-width: 500px;
-
-    max-height: 85vh;
-
+    max-width: 480px;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
-
     background: #26263f;
-
     border-radius: 16px;
-
-    box-shadow:
-        0 20px 60px
-        rgba(0, 0, 0, .7);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .7);
 }
-
 .modal-header {
-    min-height: 55px;
-
-    padding: 10px 18px;
-
+    min-height: 44px;
+    padding: 6px 14px;
     display: flex;
-
     align-items: center;
     justify-content: space-between;
-
-    border-bottom:
-        1px solid #3a3a5c;
-
+    border-bottom: 1px solid #3a3a5c;
     color: #14b8a6;
-
     font-weight: bold;
 }
-
 .modal-close {
-    width: 32px;
-    height: 32px;
-
+    width: 28px;
+    height: 28px;
     background: #e74c3c;
-
     border-radius: 50%;
-
-    font-size: 13px;
+    font-size: 12px;
 }
-
 .modal-content {
     margin: 0;
-
-    padding: 20px;
-
+    padding: 14px;
     overflow-y: auto;
-
     direction: rtl;
-
     text-align: right;
-
     white-space: pre-wrap;
-
     color: #eee;
-
     font-family: inherit;
-
     font-size: 14px;
-
     line-height: 2;
 }
 
-
-/* FOOTER */
-
 footer {
-    margin-top: 18px;
-
+    margin-top: 10px;
     color: #777;
-
-    font-size: 12px;
-
+    font-size: 11px;
     text-align: center;
 }
 
-
-/* MOBILE */
+/* ============================================================
+   شاشات أوسع (كمبيوتر): نوسّع البطاقة قليلًا فقط، بما أن الدرج
+   الجانبي أصبح overlay ثابت ولم يعد يحتاج مساحة إضافية داخل البطاقة.
+   ============================================================ */
+@media (min-width: 700px) {
+    .calculator { max-width: 460px; }
+    .side-drawer { width: 300px; }
+}
 
 @media (max-width: 450px) {
-
-    body {
-        padding: 10px;
-    }
-
-    .calculator {
-        padding: 17px;
-
-        border-radius: 18px;
-    }
-
-    .app-title h1 {
-        font-size: 24px;
-    }
-
-    .function-buttons {
-        grid-template-columns:
-            repeat(4, 1fr);
-    }
-
-    .function-buttons button {
-        font-size: 11px;
-    }
+    body { padding: 8px; }
+    .calculator { padding: 10px; border-radius: 16px; }
+    .app-title h1 { font-size: 20px; }
+    .function-buttons { grid-template-columns: repeat(4, 1fr); }
+    .function-buttons button { font-size: 10px; }
+    button { height: 32px; font-size: 13px; }
+    .btn-equal { height: 34px; }
 }

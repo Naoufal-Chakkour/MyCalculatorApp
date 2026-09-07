@@ -176,6 +176,103 @@ app.MapPost("/solve-polynomial-expr", async (HttpContext context) =>
     }
 });
 
+// ============================================================
+// PLOT EQUATION
+// ============================================================
+app.MapPost("/plot-equation", async (HttpContext context) =>
+{
+    context.Response.ContentType = "application/json; charset=utf-8";
+    try
+    {
+        var data = await ReadRequestData(context);
+        string expr = GetValue(data, "expr", "equation");
+        if (string.IsNullOrWhiteSpace(expr)) throw new Exception("Empty equation");
+
+        string equation = expr.Replace(" ", "");
+        if (!equation.Contains("=")) equation += "=0";
+        string[] parts = equation.Split('=');
+        if (parts.Length != 2) throw new Exception("Invalid equation");
+        string left = parts[0];
+        string right = parts[1];
+
+        ExprNode leftTree = ExpressionParser.Parse(left);
+        ExprNode rightTree = ExpressionParser.Parse(right);
+
+        // تحديد مجال الرسم
+        double xMin = -10.0, xMax = 10.0;
+        if (left.Contains("ln") || right.Contains("ln") || left.Contains("sqrt") || right.Contains("sqrt"))
+        {
+            xMin = 0.1;
+            xMax = 10.0;
+        }
+
+        const int points = 300;
+        var xValues = new List<double>();
+        var yLeft = new List<double?>();
+        var yRight = new List<double?>();
+
+        double step = (xMax - xMin) / points;
+        for (int i = 0; i <= points; i++)
+        {
+            double x = xMin + i * step;
+            xValues.Add(Math.Round(x, 6));
+            try
+            {
+                double lv = leftTree.Evaluate(x);
+                double rv = rightTree.Evaluate(x);
+                yLeft.Add(double.IsFinite(lv) ? lv : (double?)null);
+                yRight.Add(double.IsFinite(rv) ? rv : (double?)null);
+            }
+            catch
+            {
+                yLeft.Add(null);
+                yRight.Add(null);
+            }
+        }
+
+        // إيجاد نقطة تقاطع المنحنيين مباشرة من بيانات الرسم نفسها (بدل استخراجها بـ regex
+        // من نص النتيجة المعروض، لأن ذلك كان يفشل مع النتائج على شكل كسر مثل "3/4")
+        double? solutionX = null;
+        double? solutionY = null;
+
+        for (int i = 1; i < xValues.Count && solutionX == null; i++)
+        {
+            if (!yLeft[i - 1].HasValue || !yRight[i - 1].HasValue || !yLeft[i].HasValue || !yRight[i].HasValue)
+                continue;
+
+            double prevDiff = yLeft[i - 1]!.Value - yRight[i - 1]!.Value;
+            double currDiff = yLeft[i]!.Value - yRight[i]!.Value;
+
+            if (Math.Abs(currDiff) < 1e-6)
+            {
+                solutionX = xValues[i];
+                solutionY = yLeft[i];
+            }
+            else if (prevDiff * currDiff < 0)
+            {
+                double t = prevDiff / (prevDiff - currDiff);
+                solutionX = xValues[i - 1] + t * (xValues[i] - xValues[i - 1]);
+                solutionY = yLeft[i - 1]!.Value + t * (yLeft[i]!.Value - yLeft[i - 1]!.Value);
+            }
+        }
+
+        var response = new
+        {
+            x = xValues,
+            left = yLeft,
+            right = yRight,
+            solutionX = solutionX,
+            solutionY = solutionY
+        };
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
+    }
+    catch (Exception ex)
+    {
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
+    }
+});
+
 app.Run();
 
 // ============================================================
@@ -240,6 +337,38 @@ static class Format
             return z.Imaginary >= 0 ? $"{imaginary}i" : $"-{imaginary}i";
 
         return z.Imaginary >= 0 ? $"{real} + {imaginary}i" : $"{real} - {imaginary}i";
+    }
+
+    // للعرض فقط: "x^5" → "x⁵"، "2^x" → "2ˣ". لا يُستخدم أبدًا قبل التحليل/الحساب.
+    public static string Superscript(string expr)
+    {
+        if (string.IsNullOrEmpty(expr)) return expr;
+        return Regex.Replace(expr, @"\^(-?\d+(?:\.\d+)?|[xX])", match =>
+        {
+            string exponent = match.Groups[1].Value;
+            if (exponent.Equals("x", StringComparison.OrdinalIgnoreCase)) return "ˣ";
+
+            var sb = new StringBuilder();
+            foreach (char c in exponent)
+            {
+                sb.Append(c switch
+                {
+                    '0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴',
+                    '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹',
+                    '-' => '⁻', '.' => '·',
+                    _ => c
+                });
+            }
+            return sb.ToString();
+        });
+    }
+
+    // للعرض فقط: "sqrt(" → "√(" مع تحويل الأسس لعلوية. لا يُستخدم أبدًا قبل التحليل/الحساب.
+    public static string PrettyEquation(string expr)
+    {
+        if (string.IsNullOrEmpty(expr)) return expr;
+        string result = Regex.Replace(expr, @"sqrt\(", "√(", RegexOptions.IgnoreCase);
+        return Superscript(result);
     }
 }
 
@@ -345,8 +474,6 @@ class BinaryNode : ExprNode
     public override bool ContainsX => Left.ContainsX || Right.ContainsX;
 }
 
-// ===== FunctionNode (تم تصحيحها: الدوال المثلثية تعمل بالدرجات دائمًا، بشكل متسق مع
-//        محلل المعادلات الخاصة SpecialEquationSolver الذي يفترض ذلك) =====
 class FunctionNode : ExprNode
 {
     public string Name { get; }
@@ -362,16 +489,12 @@ class FunctionNode : ExprNode
         {
             return Name.ToLowerInvariant() switch
             {
-                // sin/cos/tan تأخذ درجات
                 "sin" => Math.Sin(value * deg2rad),
                 "cos" => Math.Cos(value * deg2rad),
                 "tan" => Math.Tan(value * deg2rad),
-
-                // الدوال العكسية ترجع درجات
                 "asin" when value >= -1 && value <= 1 => Math.Asin(value) / deg2rad,
                 "acos" when value >= -1 && value <= 1 => Math.Acos(value) / deg2rad,
                 "atan" => Math.Atan(value) / deg2rad,
-
                 "log" when value > 0 => Math.Log10(value),
                 "ln" when value > 0 => Math.Log(value),
                 "sqrt" when value >= 0 => Math.Sqrt(value),
@@ -411,6 +534,7 @@ static class ExpressionParser
         return text.Replace(" ", "").Replace("×", "*").Replace("÷", "/").Replace("−", "-")
             .Replace("π", "pi").Replace("Π", "pi")
             .Replace("²", "^2").Replace("³", "^3").Replace("⁴", "^4").Replace("⁵", "^5")
+            .Replace("ˣ", "^x").Replace("√", "sqrt")
             .Replace(",", ".");
     }
 
@@ -687,17 +811,16 @@ static class PolynomialConverter
 }
 
 // ============================================================
-// QUADRATIC SOLVER (تم تصحيحها: صيغة جذرية رمزية حقيقية + خطوات أوضح)
+// QUADRATIC SOLVER
 // ============================================================
 static class EquationSolver
 {
-    // يبسط الجذر: √n = outside × √inside (مثلاً √20 = 2√5). يرجع inside=1 إذا كان الجذر تامًا
     static (long outside, long inside) SimplifySqrt(double value)
     {
         if (value < 0) return (1, 0);
         long n = (long)Math.Round(value);
         if (n == 0) return (0, 0);
-        if (Math.Abs(n - value) > 1e-6) return (1, n); // مو صحيحًا تمامًا، لا نحاول التبسيط الرمزي
+        if (Math.Abs(n - value) > 1e-6) return (1, n);
 
         long outside = 1, inside = n;
         for (long i = 2; i * i <= inside; i++)
@@ -721,70 +844,38 @@ static class EquationSolver
         steps.AppendLine($"المعادلة: {Fr(a)}x² {Format.Signed(b)}x {Format.Signed(c)} = 0");
         steps.AppendLine();
 
-        // ---------------- الحالة الخطية / التناقض ----------------
         if (Math.Abs(a) < 1e-12)
         {
             if (Math.Abs(b) < 1e-12)
             {
                 if (Math.Abs(c) < 1e-12)
-                {
-                    steps.AppendLine("بما أن a = 0 و b = 0 و c = 0:");
-                    steps.AppendLine("0 = 0 وهذا صحيح دائمًا مهما كانت قيمة x.");
-                    return new QuadraticResult
-                    {
-                        Radical = "عدد لا نهائي من الحلول",
-                        DecimalVal = "عدد لا نهائي من الحلول",
-                        Steps = steps.ToString()
-                    };
-                }
-
-                steps.AppendLine("بما أن a = 0 و b = 0، تصبح المعادلة:");
-                steps.AppendLine($"{Fr(c)} = 0");
-                steps.AppendLine("وهذه العبارة غير صحيحة مهما كانت قيمة x، فلا يوجد حل.");
-                return new QuadraticResult
-                {
-                    Radical = "لا يوجد حل",
-                    DecimalVal = "لا يوجد حل",
-                    Steps = steps.ToString()
-                };
+                    return new QuadraticResult { Radical = "عدد لا نهائي من الحلول", DecimalVal = "عدد لا نهائي من الحلول", Steps = steps.ToString() };
+                else
+                    return new QuadraticResult { Radical = "لا يوجد حل", DecimalVal = "لا يوجد حل", Steps = steps.ToString() };
             }
 
             double xLin = -c / b;
             steps.AppendLine("بما أن a = 0، تصبح المعادلة من الدرجة الأولى:");
             steps.AppendLine($"{Fr(b)}x {Format.Signed(c)} = 0");
-            steps.AppendLine($"{Fr(b)}x = {Fr(-c)}");
-            steps.AppendLine($"x = {Fr(-c)} / {Fr(b)}");
             steps.AppendLine($"x = {Fr(xLin)}");
-
-            string linRes = $"x = {Fr(xLin)}";
-            return new QuadraticResult { Radical = linRes, DecimalVal = $"x ≈ {Format.Number(xLin)}", Steps = steps.ToString() };
+            return new QuadraticResult { Radical = $"x = {Fr(xLin)}", DecimalVal = $"x ≈ {Format.Number(xLin)}", Steps = steps.ToString() };
         }
 
-        // ---------------- حساب المميز ----------------
         double delta = b * b - 4 * a * c;
         if (Math.Abs(delta) < 1e-12) delta = 0;
 
         steps.AppendLine("الخطوة 1: حساب المميز");
-        steps.AppendLine("Δ = b² - 4ac");
-        steps.AppendLine($"Δ = ({Fr(b)})² - 4×({Fr(a)})×({Fr(c)})");
-        steps.AppendLine($"Δ = {Fr(b * b)} - {Fr(4 * a * c)}");
-        steps.AppendLine($"Δ = {Fr(delta)}");
+        steps.AppendLine($"Δ = b² - 4ac = {Fr(delta)}");
         steps.AppendLine();
 
-        // ---------------- حل مضاعف ----------------
         if (delta == 0)
         {
             double x = -b / (2 * a);
-            steps.AppendLine("الخطوة 2: بما أن Δ = 0 → حل حقيقي واحد (مضاعف)");
-            steps.AppendLine("الصيغة: x = -b / 2a");
-            steps.AppendLine($"x = -({Fr(b)}) / (2×{Fr(a)})");
+            steps.AppendLine("الخطوة 2: بما أن Δ = 0 → حل مضاعف");
             steps.AppendLine($"x = {Fr(x)}");
-
-            string res = $"x = {Fr(x)} (حل مضاعف)";
-            return new QuadraticResult { Radical = res, DecimalVal = $"x ≈ {Format.Number(x)} (حل مضاعف)", Steps = steps.ToString() };
+            return new QuadraticResult { Radical = $"x = {Fr(x)} (مضاعف)", DecimalVal = $"x ≈ {Format.Number(x)} (مضاعف)", Steps = steps.ToString() };
         }
 
-        // ---------------- حلان حقيقيان ----------------
         if (delta > 0)
         {
             double sqrtD = Math.Sqrt(delta);
@@ -794,16 +885,14 @@ static class EquationSolver
             double x1 = (-b + sqrtD) / (2 * a);
             double x2 = (-b - sqrtD) / (2 * a);
 
-            steps.AppendLine("الخطوة 2: بما أن Δ > 0 → حلان حقيقيان مختلفان");
-            steps.AppendLine("الصيغة العامة: x = (-b ± √Δ) / 2a");
+            steps.AppendLine("الخطوة 2: بما أن Δ > 0 → حلان حقيقيان");
 
             string radical, decimalStr;
-
             if (perfect)
             {
-                steps.AppendLine($"√Δ = √{Fr(delta)} = {sqrtD:F0} (جذر تام)");
-                steps.AppendLine($"x1 = (-({Fr(b)}) + {sqrtD:F0}) / (2×{Fr(a)}) = {Fr(x1)}");
-                steps.AppendLine($"x2 = (-({Fr(b)}) - {sqrtD:F0}) / (2×{Fr(a)}) = {Fr(x2)}");
+                steps.AppendLine($"√Δ = {sqrtD:F0}");
+                steps.AppendLine($"x1 = {Fr(x1)}");
+                steps.AppendLine($"x2 = {Fr(x2)}");
                 radical = $"x1 = {Fr(x1)}\nx2 = {Fr(x2)}";
                 decimalStr = radical;
             }
@@ -814,37 +903,28 @@ static class EquationSolver
                 long twoAInt = (long)Math.Round(twoA);
                 string denom = Math.Abs(twoA - twoAInt) < 1e-9 ? twoAInt.ToString(CultureInfo.InvariantCulture) : Fr(twoA);
                 string bNeg = Fr(-b);
-
-                steps.AppendLine($"Δ ليس جذرًا تامًا، نبسط الجذر: √{Fr(delta)} = {sq}");
+                steps.AppendLine($"√Δ = {sq}");
                 steps.AppendLine($"x1 = ({bNeg} + {sq}) / {denom}");
                 steps.AppendLine($"x2 = ({bNeg} - {sq}) / {denom}");
-                steps.AppendLine($"القيمة التقريبية: x1 ≈ {Format.Number(x1)} , x2 ≈ {Format.Number(x2)}");
-
                 radical = $"x1 = ({bNeg} + {sq}) / {denom}\nx2 = ({bNeg} - {sq}) / {denom}";
                 decimalStr = $"x1 ≈ {Format.Number(x1)}\nx2 ≈ {Format.Number(x2)}";
             }
-
             return new QuadraticResult { Radical = radical, DecimalVal = decimalStr, Steps = steps.ToString() };
         }
-
-        // ---------------- حلول عقدية ----------------
+        else
         {
             double real = -b / (2 * a);
             double imagAbs = Math.Sqrt(-delta) / Math.Abs(2 * a);
             var (outside, inside) = SimplifySqrt(-delta);
             bool perfect = inside == 1;
 
-            steps.AppendLine("الخطوة 2: بما أن Δ < 0 → لا يوجد حلول حقيقية، الحلول عقدية (مركبة)");
-            steps.AppendLine("الصيغة: x = (-b ± i√(-Δ)) / 2a");
+            steps.AppendLine("الخطوة 2: بما أن Δ < 0 → حلول عقدية");
 
             string radical, decimalStr;
-
             if (perfect)
             {
-                steps.AppendLine($"√(-Δ) = √{Fr(-delta)} = {Math.Sqrt(-delta):F0} (جذر تام)");
                 radical = $"x1 = {Fr(real)} + {Fr(imagAbs)}i\nx2 = {Fr(real)} - {Fr(imagAbs)}i";
                 decimalStr = radical;
-                steps.AppendLine(radical);
             }
             else
             {
@@ -852,15 +932,9 @@ static class EquationSolver
                 double twoA = 2 * a;
                 long twoAInt = (long)Math.Round(twoA);
                 string denom = Math.Abs(twoA - twoAInt) < 1e-9 ? twoAInt.ToString(CultureInfo.InvariantCulture) : Fr(twoA);
-
                 radical = $"x1 = {Fr(real)} + ({sq}/{denom})i\nx2 = {Fr(real)} - ({sq}/{denom})i";
                 decimalStr = $"x1 ≈ {Format.Number(real)} + {Format.Number(imagAbs)}i\nx2 ≈ {Format.Number(real)} - {Format.Number(imagAbs)}i";
-
-                steps.AppendLine($"√(-Δ) = √{Fr(-delta)} = {sq}");
-                steps.AppendLine(radical);
-                steps.AppendLine($"القيمة التقريبية:\n{decimalStr}");
             }
-
             return new QuadraticResult { Radical = radical, DecimalVal = decimalStr, Steps = steps.ToString() };
         }
     }
@@ -885,30 +959,76 @@ static class UniversalEquationSolver
         if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
             throw new Exception("Missing equation side");
 
+        // نسخ للعرض فقط (sqrt→√ ، ^5→⁵) — التحليل والحساب يبقيان دائمًا على left/right الخام
+        string displayEquation = Format.PrettyEquation(equation);
+        string displayLeft = Format.PrettyEquation(left);
+        string displayRight = Format.PrettyEquation(right);
+
+        // التفسير الهندسي المشترك
+        var geometricSteps = new StringBuilder();
+        geometricSteps.AppendLine("التفسير الهندسي للمعادلة");
+        geometricSteps.AppendLine();
+        geometricSteps.AppendLine($"نحن نبحث عن حل للمعادلة:");
+        geometricSteps.AppendLine($"{displayEquation}");
+        geometricSteps.AppendLine();
+        geometricSteps.AppendLine("هندسيًا، هذا يعني إيجاد النقاط التي يتقاطع فيها منحنى الدالتين:");
+        geometricSteps.AppendLine($"y = {displayLeft}");
+        geometricSteps.AppendLine($"y = {displayRight}");
+        geometricSteps.AppendLine();
+        geometricSteps.AppendLine("أي أننا نبحث عن نقطة (أو نقاط) على محور x حيث يتساوى ارتفاع المنحنيين.");
+        geometricSteps.AppendLine();
+        geometricSteps.AppendLine("لتبسيط المسألة، نعرّف دالة جديدة هي الفرق بين الطرفين:");
+        geometricSteps.AppendLine($"f(x) = {displayLeft} − ({displayRight})");
+        geometricSteps.AppendLine();
+        geometricSteps.AppendLine("عندها يصبح حل المعادلة هو إيجاد جذر الدالة f(x)، أي النقطة التي يتقاطع فيها");
+        geometricSteps.AppendLine("منحنى f(x) مع محور x الأفقي (حيث f(x) = 0).");
+        geometricSteps.AppendLine();
+        geometricSteps.AppendLine("هذا التحويل الهندسي هو الأساس الذي تبنى عليه طرق الحل الجبرية والعددية.");
+
+        ExprNode leftTree = null!;
+        ExprNode rightTree = null!;
+
+        // أولاً: محاولة التحويل إلى متعدد حدود (حل جبري)
         try
         {
-            ExprNode leftTree = ExpressionParser.Parse(left);
-            ExprNode rightTree = ExpressionParser.Parse(right);
+            leftTree = ExpressionParser.Parse(left);
+            rightTree = ExpressionParser.Parse(right);
 
             if (PolynomialConverter.TryConvert(leftTree, out Poly leftPoly) &&
                 PolynomialConverter.TryConvert(rightTree, out Poly rightPoly))
             {
                 Poly polynomial = leftPoly - rightPoly;
-                return SolvePolynomial(polynomial, equation);
+                EquationResult result = SolvePolynomial(polynomial, displayEquation);
+                result.Steps = geometricSteps.ToString() + "\n" + result.Steps;
+                return result;
             }
         }
         catch { }
 
-        EquationResult? special = SpecialEquationSolver.TrySolve(left, right, equation);
-        if (special != null) return special;
+        // ثانياً: الحل الجبري الخاص (ln=ln, exp=exp, sin=sin, ...)
+        EquationResult? special = SpecialEquationSolver.TrySolve(left, right, displayEquation);
+        if (special != null)
+        {
+            special.Steps = geometricSteps.ToString() + "\n" + special.Steps;
+            return special;
+        }
 
-        return NumericalEquationSolver.Solve(left, right, equation);
+        // ثالثاً: الحل العددي
+        if (leftTree == null || rightTree == null)
+        {
+            leftTree = ExpressionParser.Parse(left);
+            rightTree = ExpressionParser.Parse(right);
+        }
+        EquationResult numerical = NumericalEquationSolver.Solve(leftTree, rightTree, displayEquation);
+        return numerical;
     }
 
     static string Normalize(string value)
     {
         return value.Replace(" ", "").Replace("×", "*").Replace("÷", "/").Replace("−", "-")
-            .Replace("π", "pi").Replace("Π", "pi").Replace("²", "^2").Replace("³", "^3").Replace(",", ".");
+            .Replace("π", "pi").Replace("Π", "pi")
+            .Replace("²", "^2").Replace("³", "^3").Replace("⁴", "^4").Replace("⁵", "^5")
+            .Replace("ˣ", "^x").Replace(",", ".");
     }
 
     static EquationResult SolvePolynomial(Poly polynomial, string equation)
@@ -918,18 +1038,17 @@ static class UniversalEquationSolver
             return new EquationResult
             {
                 Result = "عدد لا نهائي من الحلول",
-                Steps = $"المعادلة:\n{equation}\n\nبعد نقل الحدود:\n\n0 = 0\n\nإذن المعادلة صحيحة لكل x."
+                Steps = $"المعادلة:\n{equation}\n\nبعد نقل الحدود:\n0 = 0\nإذن المعادلة صحيحة لكل x."
             };
         }
 
         int degree = polynomial.Degree;
-
         if (degree == 0)
         {
             return new EquationResult
             {
                 Result = "لا يوجد حل",
-                Steps = $"المعادلة:\n{equation}\n\nبعد التبسيط:\n{Format.Number(polynomial.C[0])} = 0\n\nوهذه العبارة غير صحيحة."
+                Steps = $"المعادلة:\n{equation}\n\nبعد التبسيط:\n{Format.Number(polynomial.C[0])} = 0\nوهذه العبارة غير صحيحة."
             };
         }
 
@@ -938,11 +1057,10 @@ static class UniversalEquationSolver
             double b = polynomial.C[1];
             double c = polynomial.C[0];
             double x = -c / b;
-
             return new EquationResult
             {
                 Result = $"x = {Format.Fraction(x)}",
-                Steps = $"المعادلة:\n{equation}\n\nبعد التبسيط:\n{Format.Fraction(b)}x {Format.Signed(c)} = 0\n\nx = {Format.Fraction(x)}"
+                Steps = $"المعادلة:\n{equation}\n\nبعد التبسيط:\n{Format.Fraction(b)}x {Format.Signed(c)} = 0\nx = {Format.Fraction(x)}"
             };
         }
 
@@ -965,29 +1083,127 @@ static class UniversalEquationSolver
 // ============================================================
 static class SpecialEquationSolver
 {
-    // يبني خطوة "حل المعادلة الخطية الإضافية" فقط عندما تكون الوسيطة أكثر من x مجردة
-    // (مثلاً ln(2x+1)=2 تحتاج خطوة إضافية بعد إيجاد قيمة 2x+1، بعكس ln(x)=2)
-    static string LinearArgumentSteps(double coefficient, double constant, string innerText, double requiredValue, out double x)
+    private static bool IsLinear(string expr, out double a, out double b)
     {
-        x = (requiredValue - constant) / coefficient;
-        bool trivial = Math.Abs(coefficient - 1) < 1e-9 && Math.Abs(constant) < 1e-9;
-        if (trivial) return "";
-
-        var sb = new StringBuilder();
-        sb.AppendLine();
-        sb.AppendLine($"بما أن الدالة مطبقة على العبارة ({innerText}) وليس على x مباشرة، نحل الآن المعادلة الخطية الناتجة:");
-        sb.AppendLine($"{Format.Fraction(coefficient)}x {Format.Signed(constant)} = {Format.Number(requiredValue)}");
-        sb.AppendLine($"{Format.Fraction(coefficient)}x = {Format.Number(requiredValue - constant)}");
-        sb.AppendLine($"x = {Format.Number(requiredValue - constant)} / {Format.Fraction(coefficient)}");
-        sb.AppendLine($"x = {Format.Fraction(x)}");
-        return sb.ToString();
+        a = 0; b = 0;
+        try
+        {
+            ExprNode tree = ExpressionParser.Parse(expr);
+            if (!PolynomialConverter.TryConvert(tree, out Poly poly)) return false;
+            if (poly.Degree > 1) return false;
+            if (poly.C.Length > 1) a = poly.C[1];
+            b = poly.C[0];
+            return Math.Abs(a) > 1e-12;
+        }
+        catch { return false; }
     }
 
     public static EquationResult? TrySolve(string left, string right, string original)
     {
+        // ===== ln(f(x)) = ln(g(x)) =====
+        if (left.StartsWith("ln(") && right.StartsWith("ln("))
+        {
+            string innerLeft = left.Substring(3, left.Length - 4);
+            string innerRight = right.Substring(3, right.Length - 4);
+
+            if (IsLinear(innerLeft, out double a1, out double b1) &&
+                IsLinear(innerRight, out double a2, out double b2))
+            {
+                double A = a1 - a2;
+                double B = b1 - b2;
+                if (Math.Abs(A) < 1e-12) return null;
+
+                double x = -B / A;
+                var steps = new StringBuilder();
+                steps.AppendLine($"المعادلة الأصلية:\n{original}");
+                steps.AppendLine();
+                steps.AppendLine("بما أن اللوغاريتم الطبيعي (ln) دالة متباينة، يمكننا مساواة ما بداخله:");
+                steps.AppendLine($"{Format.PrettyEquation(innerLeft)} = {Format.PrettyEquation(innerRight)}");
+                steps.AppendLine();
+                steps.AppendLine($"نحل المعادلة الخطية:");
+                steps.AppendLine($"{Format.Fraction(A)}x {Format.Signed(B)} = 0");
+                steps.AppendLine($"x = {Format.Fraction(x)}");
+                steps.AppendLine();
+                steps.AppendLine("التحقق من مجال اللوغاريتم (يجب أن يكون ما بداخله > 0):");
+                steps.AppendLine($"f({Format.Fraction(x)}) = {Format.Fraction(a1 * x + b1)} > 0 ✓");
+                steps.AppendLine($"g({Format.Fraction(x)}) = {Format.Fraction(a2 * x + b2)} > 0 ✓");
+                return new EquationResult { Result = $"x = {Format.Fraction(x)}", Steps = steps.ToString() };
+            }
+        }
+
+        // ===== exp(f(x)) = exp(g(x)) =====
+        if (left.StartsWith("exp(") && right.StartsWith("exp("))
+        {
+            string innerLeft = left.Substring(4, left.Length - 5);
+            string innerRight = right.Substring(4, right.Length - 5);
+
+            if (IsLinear(innerLeft, out double a1, out double b1) &&
+                IsLinear(innerRight, out double a2, out double b2))
+            {
+                double A = a1 - a2;
+                double B = b1 - b2;
+                if (Math.Abs(A) < 1e-12) return null;
+
+                double x = -B / A;
+                var steps = new StringBuilder();
+                steps.AppendLine($"المعادلة الأصلية:\n{original}");
+                steps.AppendLine();
+                steps.AppendLine("بما أن الدالة الأسية (exp) دالة متباينة، يمكننا مساواة الأسس:");
+                steps.AppendLine($"{Format.PrettyEquation(innerLeft)} = {Format.PrettyEquation(innerRight)}");
+                steps.AppendLine();
+                steps.AppendLine($"نحل المعادلة الخطية:");
+                steps.AppendLine($"{Format.Fraction(A)}x {Format.Signed(B)} = 0");
+                steps.AppendLine($"x = {Format.Fraction(x)}");
+                return new EquationResult { Result = $"x = {Format.Fraction(x)}", Steps = steps.ToString() };
+            }
+        }
+
+        // ===== sin(f(x)) = sin(g(x)) =====
+        if (left.StartsWith("sin(") && right.StartsWith("sin("))
+        {
+            string innerLeft = left.Substring(4, left.Length - 5);
+            string innerRight = right.Substring(4, right.Length - 5);
+
+            if (IsLinear(innerLeft, out double a1, out double b1) &&
+                IsLinear(innerRight, out double a2, out double b2))
+            {
+                double A = a1 - a2;
+                double B = b1 - b2;
+                if (Math.Abs(A) > 1e-12)
+                {
+                    double x1 = -B / A;
+                    var steps = new StringBuilder();
+                    steps.AppendLine($"المعادلة الأصلية:\n{original}");
+                    steps.AppendLine();
+                    steps.AppendLine($"sin({Format.PrettyEquation(innerLeft)}) = sin({Format.PrettyEquation(innerRight)})");
+                    steps.AppendLine();
+                    steps.AppendLine("باستخدام اتحاد زوايا الجيب: إذا كانت sin(A) = sin(B)، فإن:");
+                    steps.AppendLine("1) A = B + 2nπ");
+                    steps.AppendLine("2) A = π - B + 2nπ");
+                    steps.AppendLine();
+                    steps.AppendLine("نأخذ الحالة الأولى (مع n=0) ونحل:");
+                    steps.AppendLine($"{Format.PrettyEquation(innerLeft)} = {Format.PrettyEquation(innerRight)}");
+                    steps.AppendLine($"x = {Format.Fraction(x1)}");
+                    steps.AppendLine();
+                    steps.AppendLine("ملاحظة: توجد حلول أخرى بإضافة مضاعفات 2π (للدورة) إلى الحلول الأساسية.");
+                    return new EquationResult { Result = $"x₁ ≈ {Format.Fraction(x1)}", Steps = steps.ToString() };
+                }
+            }
+        }
+
+        // ============================================================
+        // الحالات التي تتطلب أن يكون الطرف الأيمن عدداً ثابتاً
+        // ============================================================
+        try
+        {
+            ExprNode rightTree = ExpressionParser.Parse(right);
+            if (rightTree.ContainsX)
+                return null;
+        }
+        catch { return null; }
+
         // ===== a^x = b =====
         Match power = Regex.Match(left, @"^([+-]?[0-9]+(?:\.[0-9]+)?)\^x$", RegexOptions.IgnoreCase);
-
         if (power.Success)
         {
             if (TryEvaluate(power.Groups[1].Value, out double baseValue) && TryEvaluate(right, out double target))
@@ -1025,7 +1241,7 @@ static class SpecialEquationSolver
             }
         }
 
-        // ===== function(inner) = target =====
+        // ===== function(inner) = target (حيث target عدد ثابت) =====
         Match functionMatch = Regex.Match(left, @"^(sin|cos|tan|asin|acos|atan|ln|log|exp|sqrt)(.*)$", RegexOptions.IgnoreCase);
         if (!functionMatch.Success) return null;
 
@@ -1036,8 +1252,8 @@ static class SpecialEquationSolver
         if (!TryGetLinear(inner, out double coefficient, out double constant)) return null;
         if (Math.Abs(coefficient) < 1e-12) return null;
 
-        // ملاحظة: sin/cos/tan/asin/acos/atan تعمل هنا بالدرجات، متسقة مع FunctionNode
         string innerLabel = (inner.StartsWith("(") && inner.EndsWith(")")) ? inner[1..^1] : inner;
+        innerLabel = Format.PrettyEquation(innerLabel);
 
         // ===== ln =====
         if (function == "ln")
@@ -1358,6 +1574,22 @@ static class SpecialEquationSolver
         return null;
     }
 
+    static string LinearArgumentSteps(double coefficient, double constant, string innerText, double requiredValue, out double x)
+    {
+        x = (requiredValue - constant) / coefficient;
+        bool trivial = Math.Abs(coefficient - 1) < 1e-9 && Math.Abs(constant) < 1e-9;
+        if (trivial) return "";
+
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine($"بما أن الدالة مطبقة على العبارة ({innerText}) وليس على x مباشرة، نحل الآن المعادلة الخطية الناتجة:");
+        sb.AppendLine($"{Format.Fraction(coefficient)}x {Format.Signed(constant)} = {Format.Number(requiredValue)}");
+        sb.AppendLine($"{Format.Fraction(coefficient)}x = {Format.Number(requiredValue - constant)}");
+        sb.AppendLine($"x = {Format.Number(requiredValue - constant)} / {Format.Fraction(coefficient)}");
+        sb.AppendLine($"x = {Format.Fraction(x)}");
+        return sb.ToString();
+    }
+
     static bool TryEvaluate(string expression, out double value)
     {
         value = 0;
@@ -1443,7 +1675,6 @@ static class HigherDegreePolynomialSolver
         {
             double x = -remaining[0] / remaining[1];
             if (double.IsFinite(x)) roots.Add(x);
-
             steps.AppendLine($"الجزء المتبقي خطي: {Format.Fraction(remaining[1])}x {Format.Signed(remaining[0])} = 0");
             steps.AppendLine($"الجذر المتبقي: x = {Format.Fraction(x)}");
         }
@@ -1595,166 +1826,358 @@ static class HigherDegreePolynomialSolver
 // ============================================================
 static class NumericalEquationSolver
 {
-    public static EquationResult Solve(string left, string right, string original)
-    {
-        ExprNode leftTree = ExpressionParser.Parse(left);
-        ExprNode rightTree = ExpressionParser.Parse(right);
+    private const double MIN_X = -100.0;
+    private const double MAX_X = 100.0;
+    private const double SCAN_STEP = 0.05;
+    private const double ROOT_TOLERANCE = 1e-8;
+    private const double DERIVATIVE_STEP = 1e-6;
 
-        double Function(double x)
+    public static EquationResult Solve(ExprNode left, ExprNode right, string originalEquation)
+    {
+        var steps = new List<string>();
+
+        Func<double, double> f = x =>
         {
             try
             {
-                double a = leftTree.Evaluate(x);
-                double b = rightTree.Evaluate(x);
-                if (!double.IsFinite(a) || !double.IsFinite(b)) return double.NaN;
+                double a = left.Evaluate(x);
+                double b = right.Evaluate(x);
+                if (!IsFinite(a) || !IsFinite(b)) return double.NaN;
                 return a - b;
             }
             catch { return double.NaN; }
-        }
+        };
 
-        List<double> roots = new();
-        const double min = -100, max = 100, step = 0.05;
+        // التفسير الهندسي (مضمن)
+        steps.Add("التفسير الهندسي للمعادلة");
+        steps.Add("");
+        steps.Add($"نحن نبحث عن حل للمعادلة:");
+        steps.Add($"{originalEquation}");
+        steps.Add("");
+        steps.Add("هندسيًا، هذا يعني إيجاد النقاط التي يتقاطع فيها منحنى الدالتين:");
+        steps.Add("y = الطرف الأيسر");
+        steps.Add("y = الطرف الأيمن");
+        steps.Add("");
+        steps.Add("أي أننا نبحث عن نقطة (أو نقاط) على محور x حيث يتساوى ارتفاع المنحنيين.");
+        steps.Add("");
+        steps.Add("لتبسيط المسألة، نعرّف دالة جديدة هي الفرق بين الطرفين:");
+        steps.Add("f(x) = الطرف الأيسر − الطرف الأيمن");
+        steps.Add("");
+        steps.Add("عندها يصبح حل المعادلة هو إيجاد جذر الدالة f(x)، أي النقطة التي يتقاطع فيها");
+        steps.Add("منحنى f(x) مع محور x الأفقي (حيث f(x) = 0).");
+        steps.Add("");
+        steps.Add("هذا التحويل الهندسي يسمح لنا باستخدام طرق البحث عن الجذور المبنية على");
+        steps.Add("تغير الإشارة، مثل طريقة التنصيف (Bisection)، لأن تغير الإشارة يعني أن");
+        steps.Add("المنحنى قد عبر محور x بين نقطتين (مبرهنة القيمة المتوسطة).");
+        steps.Add("");
 
-        double previousX = min;
-        double previousY = Function(previousX);
-        int iterations = (int)Math.Round((max - min) / step);
+        // الحل العددي
+        steps.Add("الحل العددي");
+        steps.Add("");
+        steps.Add("هذه المعادلة تحتوي على دوال أو تعابير لا يمكن عزل x فيها");
+        steps.Add("باستخدام العمليات الجبرية المعتادة فقط.");
+        steps.Add("");
+        steps.Add("لذلك سنحوّل المعادلة إلى مسألة إيجاد جذر للدالة.");
 
-        for (int i = 1; i <= iterations; i++)
+        steps.Add("");
+        steps.Add("الخطوة 1: تحويل المعادلة إلى f(x) = 0");
+        steps.Add("نأخذ الطرف الأيسر ونطرح منه الطرف الأيمن:");
+        steps.Add("");
+        steps.Add("f(x) = الطرف الأيسر − الطرف الأيمن");
+        steps.Add("");
+        steps.Add("الحل المطلوب هو قيمة x التي تجعل f(x) قريبة جدًا من الصفر.");
+        steps.Add("أي نبحث عن: f(x) ≈ 0");
+
+        steps.Add("");
+        steps.Add("الخطوة 2: البحث عن مكان وجود الحلول");
+        steps.Add($"سنبحث عدديًا في المجال من {MIN_X} إلى {MAX_X}.");
+        steps.Add($"نقسم المجال إلى نقاط متقاربة بفاصل {SCAN_STEP}.");
+        steps.Add("");
+        steps.Add("إذا تغيرت إشارة f(x) بين نقطتين، فهذا يعني أن هناك جذرًا");
+        steps.Add("بينهما في الحالات المستمرة.");
+
+        var brackets = new List<(double A, double B)>();
+        double previousX = MIN_X;
+        double previousValue = f(previousX);
+
+        for (double x = MIN_X + SCAN_STEP; x <= MAX_X + 1e-12; x += SCAN_STEP)
         {
-            double currentX = min + i * step;
-            double currentY = Function(currentX);
+            double currentX = Math.Min(x, MAX_X);
+            double currentValue = f(currentX);
 
-            if (double.IsFinite(previousY) && double.IsFinite(currentY))
+            if (IsFinite(previousValue) && IsFinite(currentValue))
             {
-                if (Math.Abs(currentY) < 1e-7)
-                {
-                    double refined = Newton(Function, currentX);
-                    if (IsValidRoot(Function, refined)) roots.Add(refined);
-                    else if (Math.Abs(currentY) < 1e-10) roots.Add(currentX);
-                }
-                else if (previousY * currentY < 0)
-                {
-                    double root = Bisection(Function, previousX, currentX);
-                    if (IsValidRoot(Function, root)) roots.Add(root);
-                }
+                if (previousValue * currentValue < 0)
+                    brackets.Add((previousX, currentX));
             }
 
             previousX = currentX;
-            previousY = currentY;
+            previousValue = currentValue;
+            if (currentX >= MAX_X) break;
         }
 
-        for (double seed = min; seed <= max; seed += 1.0)
+        brackets = brackets
+            .Where(b => IsFinite(f(b.A)) && IsFinite(f(b.B)) && f(b.A) * f(b.B) <= 0)
+            .GroupBy(b => Math.Round((b.A + b.B) / 2.0, 6))
+            .Select(g => g.First())
+            .ToList();
+
+        steps.Add($"تم العثور على {brackets.Count} مجال(ات) مرشحة للحلول.");
+        if (brackets.Count > 0)
         {
-            double root = Newton(Function, seed);
-            if (IsValidRoot(Function, root)) roots.Add(root);
+            steps.Add("");
+            steps.Add("هندسيًا، كل مجال تم العثور عليه يعني أن منحنى f(x) يعبر محور x في ذلك المجال.");
+            steps.Add("لأن قيمة f عند الطرف الأول والثاني لهما إشارتان مختلفتان (موجب وسالب).");
+            steps.Add("وهذا يضمن وجود جذر واحد على الأقل في كل مجال (بافتراض استمرارية الدالة).");
         }
 
-        roots = roots.Where(x => double.IsFinite(x)).Where(x => x >= min && x <= max)
-            .Where(x => Math.Abs(Function(x)) < 1e-8).OrderBy(x => x)
-            .GroupBy(x => Math.Round(x, 7)).Select(g => g.First()).ToList();
+        var roots = new List<double>();
+        int bracketNumber = 0;
 
-        var steps = new StringBuilder();
-        steps.AppendLine($"المعادلة:\n{original}");
-        steps.AppendLine();
-        steps.AppendLine("نستخدم الحل العددي.");
-        steps.AppendLine();
-        steps.AppendLine("نعرّف:");
-        steps.AppendLine("f(x) = الطرف الأيسر − الطرف الأيمن");
-        steps.AppendLine();
-        steps.AppendLine("نبحث عن:");
-        steps.AppendLine("f(x) ≈ 0");
-        steps.AppendLine();
-        steps.AppendLine("نطاق البحث:");
-        steps.AppendLine("-100 ≤ x ≤ 100");
-        steps.AppendLine();
+        foreach (var bracket in brackets)
+        {
+            bracketNumber++;
+            double a = bracket.A;
+            double b = bracket.B;
+            double fa = f(a);
+            double fb = f(b);
+
+            double root = Bisection(f, a, b, out List<string> bisectionSteps);
+
+            if (IsValidRoot(f, root))
+            {
+                roots.Add(root);
+
+                if (bracketNumber <= 5)
+                {
+                    steps.Add("");
+                    steps.Add($"الحل المرشح رقم {bracketNumber}");
+                    steps.Add($"وجدنا تغيرًا في الإشارة بين:");
+                    steps.Add($"a = {Format.Number(a)} ، f(a) = {Format.Number(fa)}");
+                    steps.Add($"b = {Format.Number(b)} ، f(b) = {Format.Number(fb)}");
+                    steps.Add("");
+                    steps.Add("بما أن الإشارتين مختلفتان، نستخدم طريقة التنصيف (Bisection) لتضييق المجال.");
+                    steps.Add("");
+                    steps.Add("بعض خطوات التنصيف:");
+                    foreach (string s in bisectionSteps)
+                        steps.Add(s);
+                    steps.Add("");
+                    steps.Add($"بعد التنصيف نحصل تقريبًا على:");
+                    steps.Add($"x ≈ {Format.Number(root)}");
+                }
+            }
+        }
+
+        if (roots.Count > 0)
+        {
+            steps.Add("");
+            steps.Add("الخطوة 3: تحسين الحل باستخدام Newton-Raphson");
+            steps.Add("بعد الحصول على قيمة قريبة من الحل، يمكن تحسينها باستخدام طريقة نيوتن.");
+            steps.Add("");
+            steps.Add("الصيغة هي:");
+            steps.Add("xₙ₊₁ = xₙ − f(xₙ) / f'(xₙ)");
+            steps.Add("");
+            steps.Add("وبما أن المشتقة غير متوفرة رمزيًا في هذا البرنامج، نحسبها عدديًا تقريبًا:");
+            steps.Add("f'(x) ≈ [f(x+h) − f(x−h)] / (2h)");
+
+            var refinedRoots = new List<double>();
+            int rootNumber = 0;
+
+            foreach (double initialRoot in roots)
+            {
+                rootNumber++;
+                double refinedRoot = Newton(f, initialRoot, out List<string> newtonSteps);
+
+                if (IsValidRoot(f, refinedRoot))
+                {
+                    refinedRoots.Add(refinedRoot);
+
+                    if (rootNumber <= 5)
+                    {
+                        steps.Add("");
+                        steps.Add($"تحسين الحل رقم {rootNumber}:");
+                        steps.Add($"نبدأ من x₀ = {Format.Number(initialRoot)}");
+                        foreach (string s in newtonSteps)
+                            steps.Add(s);
+                        steps.Add($"الحل بعد التحسين:");
+                        steps.Add($"x ≈ {Format.Number(refinedRoot)}");
+                    }
+                }
+            }
+
+            roots.AddRange(refinedRoots);
+        }
+
+        for (double seed = MIN_X; seed <= MAX_X; seed += 1.0)
+        {
+            double candidate = Newton(f, seed, out _);
+            if (IsValidRoot(f, candidate))
+                roots.Add(candidate);
+        }
+
+        roots = roots
+            .Where(r => IsValidRoot(f, r))
+            .Select(r => Math.Round(r, 8))
+            .Distinct()
+            .OrderBy(r => r)
+            .ToList();
+
+        const int maxRootsToShow = 5;
+        if (roots.Count > maxRootsToShow)
+        {
+            var displayedRoots = roots.Take(maxRootsToShow).ToList();
+            int hidden = roots.Count - maxRootsToShow;
+            roots = displayedRoots;
+            steps.Add($"... و {hidden} حلول أخرى محتملة (تم حذفها لتجنب التكرار).");
+        }
+
+        steps.Add("");
+        steps.Add("الخطوة 4: التحقق من الحلول");
 
         if (roots.Count == 0)
         {
-            steps.AppendLine("لم يتم العثور على حل حقيقي ضمن نطاق البحث.");
-            return new EquationResult { Result = "لا يوجد حل حقيقي ضمن النطاق المحدد.", Steps = steps.ToString() };
+            steps.Add("لم يتم العثور على حل عددي في المجال المحدد.");
+            steps.Add($"تم البحث في المجال {MIN_X} ≤ x ≤ {MAX_X}.");
+            steps.Add("هذا لا يعني بالضرورة أن المعادلة ليس لها حل خارج هذا المجال.");
+
+            return new EquationResult
+            {
+                Result = "لم يتم العثور على حل عددي في المجال المحدد.",
+                Steps = string.Join("\n", steps)
+            };
         }
 
-        steps.AppendLine("الحلول التقريبية:");
-        steps.AppendLine();
+        steps.Add($"تم العثور عدديًا على {roots.Count} حل(ول) مرشح(ة).");
+        steps.Add("نحسب الآن الباقي العددي |f(x)| للتأكد من دقة كل حل.");
 
         foreach (double root in roots)
         {
-            double residual = Math.Abs(Function(root));
-            steps.AppendLine($"x ≈ {Format.Number(root)}");
-            steps.AppendLine($"الباقي العددي |f(x)| ≈ {Format.Number(residual)}");
-            steps.AppendLine();
+            double residual = Math.Abs(f(root));
+            steps.Add("");
+            steps.Add($"الحل: x ≈ {Format.Number(root)}");
+            steps.Add($"الباقي العددي |f(x)| ≈ {Format.Number(residual)}");
+
+            if (residual < 1e-8)
+                steps.Add("الباقي قريب جدًا من الصفر، لذلك الحل دقيق عدديًا.");
+            else if (residual < 1e-5)
+                steps.Add("الباقي صغير، وبالتالي الحل مقبول كتقريب عددي.");
+            else
+                steps.Add("الباقي ليس صغيرًا بما يكفي، لذلك يجب التعامل مع الحل بحذر.");
         }
+
+        steps.Add("");
+        steps.Add("ملاحظة:");
+        steps.Add("هذا حل عددي وليس برهانًا جبريًا على جميع الحلول الممكنة.");
+        steps.Add($"البحث تم داخل المجال {MIN_X} ≤ x ≤ {MAX_X}.");
+        steps.Add("لذلك نعرض الحلول التي تمكنت الخوارزمية من العثور عليها داخل هذا المجال.");
 
         return new EquationResult
         {
-            Result = string.Join("\n", roots.Select((x, i) => $"x{i + 1} ≈ {Format.Number(x)}")),
-            Steps = steps.ToString()
+            Result = string.Join("\n", roots.Select(r => $"x ≈ {Format.Number(r)}")),
+            Steps = string.Join("\n", steps)
         };
     }
 
-    static double Bisection(Func<double, double> function, double a, double b)
+    private static double Bisection(Func<double, double> f, double a, double b, out List<string> explanation)
     {
-        double fa = function(a), fb = function(b);
-        if (!double.IsFinite(fa) || !double.IsFinite(fb)) return double.NaN;
-        if (Math.Abs(fa) < 1e-14) return a;
-        if (Math.Abs(fb) < 1e-14) return b;
+        explanation = new List<string>();
+        double fa = f(a);
+        double fb = f(b);
+
+        if (!IsFinite(fa) || !IsFinite(fb)) return double.NaN;
+        if (Math.Abs(fa) < ROOT_TOLERANCE) return a;
+        if (Math.Abs(fb) < ROOT_TOLERANCE) return b;
         if (fa * fb > 0) return double.NaN;
 
-        for (int i = 0; i < 200; i++)
+        double mid = double.NaN;
+        for (int i = 1; i <= 200; i++)
         {
-            double middle = a + (b - a) / 2.0;
-            double fm = function(middle);
-            if (!double.IsFinite(fm)) return double.NaN;
+            mid = (a + b) / 2.0;
+            double fm = f(mid);
+            if (!IsFinite(fm)) return double.NaN;
 
-            if (Math.Abs(fm) < 1e-12 || Math.Abs(b - a) < 1e-12) return middle;
+            if (i <= 5)
+            {
+                explanation.Add(
+                    $"التكرار {i}: a = {Format.Number(a)}, b = {Format.Number(b)}, x = {Format.Number(mid)}, f(x) = {Format.Number(fm)}"
+                );
+            }
 
-            if (fa * fm <= 0) { b = middle; fb = fm; }
-            else { a = middle; fa = fm; }
+            if (Math.Abs(fm) < ROOT_TOLERANCE) return mid;
+
+            if (fa * fm < 0)
+            {
+                b = mid;
+                fb = fm;
+            }
+            else
+            {
+                a = mid;
+                fa = fm;
+            }
+
+            if (Math.Abs(b - a) < ROOT_TOLERANCE)
+                return (a + b) / 2.0;
         }
-
-        double result = a + (b - a) / 2.0;
-        return IsValidRoot(function, result) ? result : double.NaN;
+        return mid;
     }
 
-    static double Newton(Func<double, double> function, double initial)
+    private static double Newton(Func<double, double> f, double initial, out List<string> explanation)
     {
+        explanation = new List<string>();
         double x = initial;
+        if (!IsFinite(x)) return double.NaN;
 
-        for (int i = 0; i < 100; i++)
+        for (int i = 1; i <= 50; i++)
         {
-            double y = function(x);
-            if (!double.IsFinite(y)) return double.NaN;
-            if (Math.Abs(y) < 1e-12) return x;
+            if (x < MIN_X || x > MAX_X) return double.NaN;
+            double fx = f(x);
+            if (!IsFinite(fx)) return double.NaN;
+            if (Math.Abs(fx) < ROOT_TOLERANCE) return x;
 
-            double h = 1e-6 * Math.Max(1.0, Math.Abs(x));
-            double y1 = function(x + h), y2 = function(x - h);
-            if (!double.IsFinite(y1) || !double.IsFinite(y2)) return double.NaN;
+            double derivative = NumericalDerivative(f, x);
+            if (!IsFinite(derivative) || Math.Abs(derivative) < 1e-12) return double.NaN;
 
-            double derivative = (y1 - y2) / (2.0 * h);
-            if (!double.IsFinite(derivative) || Math.Abs(derivative) < 1e-14) return double.NaN;
+            double next = x - fx / derivative;
+            if (!IsFinite(next) || next < MIN_X || next > MAX_X) return double.NaN;
 
-            double next = x - y / derivative;
-            if (!double.IsFinite(next)) return double.NaN;
-            if (Math.Abs(next) > 1e6) return double.NaN;
-
-            if (Math.Abs(next - x) < 1e-12)
+            if (i <= 6)
             {
-                double finalY = function(next);
-                return double.IsFinite(finalY) && Math.Abs(finalY) < 1e-10 ? next : double.NaN;
+                explanation.Add(
+                    $"Newton {i}: x = {Format.Number(x)}, f(x) = {Format.Number(fx)}, f'(x) ≈ {Format.Number(derivative)}, x الجديد = {Format.Number(next)}"
+                );
+            }
+
+            if (Math.Abs(next - x) < ROOT_TOLERANCE)
+            {
+                double nextValue = f(next);
+                if (IsFinite(nextValue) && Math.Abs(nextValue) < ROOT_TOLERANCE)
+                    return next;
             }
 
             x = next;
         }
 
-        double finalValue = function(x);
-        return double.IsFinite(finalValue) && Math.Abs(finalValue) < 1e-10 ? x : double.NaN;
+        return IsValidRoot(f, x) ? x : double.NaN;
     }
 
-    static bool IsValidRoot(Func<double, double> function, double root)
+    private static double NumericalDerivative(Func<double, double> f, double x)
     {
-        if (!double.IsFinite(root)) return false;
-        if (root < -100 || root > 100) return false;
-        double value = function(root);
-        return double.IsFinite(value) && Math.Abs(value) < 1e-8;
+        double h = DERIVATIVE_STEP;
+        double forward = f(x + h);
+        double backward = f(x - h);
+        if (!IsFinite(forward) || !IsFinite(backward)) return double.NaN;
+        return (forward - backward) / (2.0 * h);
     }
+
+    private static bool IsValidRoot(Func<double, double> f, double x)
+    {
+        if (!IsFinite(x)) return false;
+        if (x < MIN_X || x > MAX_X) return false;
+        double value = f(x);
+        return IsFinite(value) && Math.Abs(value) < 1e-8;
+    }
+
+    private static bool IsFinite(double value) =>
+        !double.IsNaN(value) && !double.IsInfinity(value);
 }
