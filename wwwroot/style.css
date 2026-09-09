@@ -364,16 +364,63 @@ button:active { transform: scale(.95); }
 .chart-close-btn:hover { background: #c0392b; }
 
 #chartContainer {
-    margin-top: 12px;
-    width: 100%;
-    max-width: 420px;
-    margin-left: auto;
-    margin-right: auto;
     display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    padding: 15px;
+    background: rgba(0, 0, 0, .75);
+    align-items: center;
+    justify-content: center;
+}
+#chartContainer.open { display: flex; }
+
+.chart-box {
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
     position: relative;
     background: #1e1e32;
-    border-radius: 12px;
-    padding: 8px;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .7);
+}
+
+.chart-analysis {
+    margin-top: 12px;
+    padding: 12px;
+    background: #26263f;
+    border-radius: 10px;
+    color: #ddd;
+    font-size: 13px;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    direction: rtl;
+    text-align: right;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.angle-mode-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.angle-mode-btn {
+    flex: 1;
+    height: 28px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    background: transparent;
+    color: #aaa;
+    font-size: 12px;
+    cursor: pointer;
+}
+.angle-mode-btn.active {
+    background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
 }
 
 .modal-overlay {

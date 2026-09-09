@@ -75,6 +75,8 @@ app.MapPost("/calculate", async (HttpContext context) =>
         if (string.IsNullOrWhiteSpace(expr)) throw new Exception("Empty expression");
         if (expr.Length > 5000) throw new Exception("Expression too long");
 
+        AngleMode.UseRadians.Value = GetValue(data, "angleMode") == "rad";
+
         double result = ExpressionEvaluator.Evaluate(expr);
         if (!double.IsFinite(result)) throw new Exception("Invalid result");
 
@@ -136,6 +138,8 @@ app.MapPost("/solve-equation", async (HttpContext context) =>
         if (string.IsNullOrWhiteSpace(expr)) throw new Exception("Empty equation");
         if (expr.Length > 10000) throw new Exception("Equation too long");
 
+        AngleMode.UseRadians.Value = GetValue(data, "angleMode") == "rad";
+
         EquationResult result = UniversalEquationSolver.Solve(expr);
         await context.Response.WriteAsync(JsonSerializer.Serialize(result, jsonOptions));
     }
@@ -163,6 +167,8 @@ app.MapPost("/solve-polynomial-expr", async (HttpContext context) =>
         string expr = GetValue(data, "expr", "expression", "equation");
         if (string.IsNullOrWhiteSpace(expr)) throw new Exception("Empty equation");
 
+        AngleMode.UseRadians.Value = GetValue(data, "angleMode") == "rad";
+
         EquationResult result = UniversalEquationSolver.Solve(expr);
         await context.Response.WriteAsync(JsonSerializer.Serialize(result, jsonOptions));
     }
@@ -188,6 +194,8 @@ app.MapPost("/plot-equation", async (HttpContext context) =>
         string expr = GetValue(data, "expr", "equation");
         if (string.IsNullOrWhiteSpace(expr)) throw new Exception("Empty equation");
 
+        AngleMode.UseRadians.Value = GetValue(data, "angleMode") == "rad";
+
         string equation = expr.Replace(" ", "");
         if (!equation.Contains("=")) equation += "=0";
         string[] parts = equation.Split('=');
@@ -198,7 +206,6 @@ app.MapPost("/plot-equation", async (HttpContext context) =>
         ExprNode leftTree = ExpressionParser.Parse(left);
         ExprNode rightTree = ExpressionParser.Parse(right);
 
-        // تحديد مجال الرسم
         double xMin = -10.0, xMax = 10.0;
         if (left.Contains("ln") || right.Contains("ln") || left.Contains("sqrt") || right.Contains("sqrt"))
         {
@@ -210,6 +217,7 @@ app.MapPost("/plot-equation", async (HttpContext context) =>
         var xValues = new List<double>();
         var yLeft = new List<double?>();
         var yRight = new List<double?>();
+        var f = new List<double?>(); // f(x) = الطرف الأيسر - الطرف الأيمن، أساس التحليل أسفله
 
         double step = (xMax - xMin) / points;
         for (int i = 0; i <= points; i++)
@@ -220,40 +228,184 @@ app.MapPost("/plot-equation", async (HttpContext context) =>
             {
                 double lv = leftTree.Evaluate(x);
                 double rv = rightTree.Evaluate(x);
-                yLeft.Add(double.IsFinite(lv) ? lv : (double?)null);
-                yRight.Add(double.IsFinite(rv) ? rv : (double?)null);
+                bool lok = double.IsFinite(lv), rok = double.IsFinite(rv);
+                yLeft.Add(lok ? lv : (double?)null);
+                yRight.Add(rok ? rv : (double?)null);
+                f.Add((lok && rok) ? lv - rv : (double?)null);
             }
             catch
             {
                 yLeft.Add(null);
                 yRight.Add(null);
+                f.Add(null);
             }
         }
 
-        // إيجاد نقطة تقاطع المنحنيين مباشرة من بيانات الرسم نفسها (بدل استخراجها بـ regex
-        // من نص النتيجة المعروض، لأن ذلك كان يفشل مع النتائج على شكل كسر مثل "3/4")
-        double? solutionX = null;
-        double? solutionY = null;
-
-        for (int i = 1; i < xValues.Count && solutionX == null; i++)
+        // إيجاد كل نقاط تقاطع المنحنيين (= كل حلول f(x)=0) عبر استيفاء خطي بين كل تغيّر إشارة
+        var allRoots = new List<double>();
+        for (int i = 1; i < xValues.Count; i++)
         {
-            if (!yLeft[i - 1].HasValue || !yRight[i - 1].HasValue || !yLeft[i].HasValue || !yRight[i].HasValue)
-                continue;
+            if (!f[i - 1].HasValue || !f[i].HasValue) continue;
 
-            double prevDiff = yLeft[i - 1]!.Value - yRight[i - 1]!.Value;
-            double currDiff = yLeft[i]!.Value - yRight[i]!.Value;
+            double prevDiff = f[i - 1]!.Value;
+            double currDiff = f[i]!.Value;
 
             if (Math.Abs(currDiff) < 1e-6)
             {
-                solutionX = xValues[i];
-                solutionY = yLeft[i];
+                allRoots.Add(xValues[i]);
             }
             else if (prevDiff * currDiff < 0)
             {
                 double t = prevDiff / (prevDiff - currDiff);
-                solutionX = xValues[i - 1] + t * (xValues[i] - xValues[i - 1]);
-                solutionY = yLeft[i - 1]!.Value + t * (yLeft[i]!.Value - yLeft[i - 1]!.Value);
+                allRoots.Add(xValues[i - 1] + t * (xValues[i] - xValues[i - 1]));
             }
+        }
+        allRoots = allRoots.Select(r => Math.Round(r, 6)).Distinct().OrderBy(r => r).ToList();
+
+        double? solutionX = allRoots.Count > 0 ? allRoots[0] : (double?)null;
+        double? solutionY = null;
+        if (solutionX.HasValue)
+        {
+            try { solutionY = leftTree.Evaluate(solutionX.Value); } catch { solutionY = null; }
+        }
+
+        // ===== تحليل إضافي: مجموعة التعريف، نقاط الانعدام، جدول الإشارة، التقعر/التحدب، نقط الانعطاف =====
+        var analysis = new StringBuilder();
+
+        var undefinedPoints = new List<double>();
+        for (int i = 0; i < xValues.Count; i++)
+            if (!f[i].HasValue) undefinedPoints.Add(xValues[i]);
+
+        bool DomainRestricted(ExprNode node)
+        {
+            switch (node)
+            {
+                case FunctionNode fn:
+                    string name = fn.Name.ToLowerInvariant();
+                    if (name is "sqrt" or "ln" or "log" or "tan" or "asin" or "acos") return true;
+                    return DomainRestricted(fn.Argument);
+                case BinaryNode bn:
+                    if ((bn.Operator == '/' || bn.Operator == '%') && bn.Right.ContainsX) return true;
+                    if (bn.Operator == '^' && bn.Right.ContainsX) return true;
+                    return DomainRestricted(bn.Left) || DomainRestricted(bn.Right);
+                case UnaryNode un:
+                    return DomainRestricted(un.Operand);
+                default:
+                    return false;
+            }
+        }
+
+        bool restricted = DomainRestricted(leftTree) || DomainRestricted(rightTree);
+
+        analysis.AppendLine("مجموعة التعريف");
+        if (!restricted)
+        {
+            analysis.AppendLine("الدالة كثيرة حدود أو تحتوي فقط على دوال معرّفة على كل الأعداد الحقيقية (مثل sin، cos، exp)،");
+            analysis.AppendLine("لذلك مجموعة تعريفها هي ℝ (جميع الأعداد الحقيقية)، أي من −∞ إلى +∞.");
+        }
+        else
+        {
+            analysis.AppendLine("الدالة تحتوي على جذر تربيعي، لوغاريتم، مماس، أو مقام يحتوي على x — وهذه العمليات");
+            analysis.AppendLine("تفرض قيودًا على مجموعة التعريف (كأن يكون ما بداخل الجذر ≥ 0، أو ما بداخل اللوغاريتم > 0).");
+            if (undefinedPoints.Count == 0)
+            {
+                analysis.AppendLine($"ضمن نافذة الفحص [{Format.Number(xMin)}, {Format.Number(xMax)}] لم نجد نقاطًا غير معرّفة،");
+                analysis.AppendLine("لكن هذا لا يضمن أن الدالة معرّفة خارج هذه النافذة أيضًا.");
+            }
+            else
+            {
+                analysis.AppendLine($"ضمن نافذة الفحص [{Format.Number(xMin)}, {Format.Number(xMax)}]، الدالة غير معرّفة تقريبًا " +
+                                     $"من x ≈ {Format.Number(undefinedPoints.First())}" +
+                                     (undefinedPoints.Count > 1 ? $" إلى x ≈ {Format.Number(undefinedPoints.Last())}." : "."));
+            }
+        }
+        analysis.AppendLine();
+
+        analysis.AppendLine("نقاط انعدام الدالة (حيث f(x) = 0، أي حلول المعادلة)");
+        if (allRoots.Count == 0)
+        {
+            analysis.AppendLine("لا توجد نقاط تقاطع واضحة ضمن نافذة الفحص المعروضة.");
+        }
+        else
+        {
+            foreach (double r in allRoots.Take(8))
+                analysis.AppendLine($"x ≈ {Format.Number(r)}");
+            if (allRoots.Count > 8)
+                analysis.AppendLine($"(و{allRoots.Count - 8} نقطة أخرى تقريبًا ضمن النافذة المعروضة)");
+        }
+        analysis.AppendLine();
+
+        analysis.AppendLine("جدول إشارة f(x) = الطرف الأيسر − الطرف الأيمن");
+        var signIntervals = new List<(double from, double to, int sign)>();
+        int? currentSign = null;
+        double intervalStart = xValues[0];
+        for (int i = 0; i < xValues.Count; i++)
+        {
+            int? s = f[i].HasValue ? Math.Sign(f[i]!.Value) : (int?)null;
+            if (s != currentSign)
+            {
+                if (currentSign.HasValue)
+                    signIntervals.Add((intervalStart, xValues[i], currentSign.Value));
+                intervalStart = xValues[i];
+                currentSign = s;
+            }
+        }
+        if (currentSign.HasValue)
+            signIntervals.Add((intervalStart, xValues[^1], currentSign.Value));
+
+        foreach (var seg in signIntervals.Where(s => s.sign != 0).Take(8))
+        {
+            string sign = seg.sign > 0 ? "موجبة (+)" : "سالبة (−)";
+            analysis.AppendLine($"من x ≈ {Format.Number(seg.from)} إلى x ≈ {Format.Number(seg.to)} : f(x) {sign}");
+        }
+        analysis.AppendLine();
+
+        analysis.AppendLine("دراسة التقعر والتحدب ونقط الانعطاف (تقريب عددي بالمشتقة الثانية)");
+        var concavitySign = new List<int?>();
+        for (int i = 0; i < xValues.Count; i++)
+        {
+            if (i == 0 || i == xValues.Count - 1 || !f[i - 1].HasValue || !f[i].HasValue || !f[i + 1].HasValue)
+            {
+                concavitySign.Add(null);
+                continue;
+            }
+            double secondDerivative = (f[i + 1]!.Value - 2 * f[i]!.Value + f[i - 1]!.Value) / (step * step);
+            concavitySign.Add(Math.Abs(secondDerivative) < 1e-4 ? 0 : Math.Sign(secondDerivative));
+        }
+
+        var inflectionPoints = new List<double>();
+        int? prevConcavity = null;
+        for (int i = 0; i < concavitySign.Count; i++)
+        {
+            if (concavitySign[i].HasValue && concavitySign[i] != 0)
+            {
+                if (prevConcavity.HasValue && prevConcavity != 0 && prevConcavity != concavitySign[i])
+                    inflectionPoints.Add(xValues[i]);
+                prevConcavity = concavitySign[i];
+            }
+        }
+
+        bool anyConvex = concavitySign.Any(c => c == 1);
+        bool anyConcave = concavitySign.Any(c => c == -1);
+
+        if (anyConvex && !anyConcave)
+            analysis.AppendLine("منحنى f(x) محدّب (تقعّره نحو الأعلى) عبر كامل المجال المرسوم تقريبًا.");
+        else if (anyConcave && !anyConvex)
+            analysis.AppendLine("منحنى f(x) مقعّر (تقعّره نحو الأسفل) عبر كامل المجال المرسوم تقريبًا.");
+        else if (anyConvex && anyConcave)
+            analysis.AppendLine("يتغيّر تقعّر منحنى f(x) بين محدّب ومقعّر أكثر من مرة ضمن المجال المرسوم.");
+        else
+            analysis.AppendLine("لم نتمكن من تحديد التقعر بدقة (بيانات غير كافية أو الدالة شبه خطية هنا).");
+
+        if (inflectionPoints.Count == 0)
+        {
+            analysis.AppendLine("لا توجد نقط انعطاف واضحة ضمن المجال المرسوم.");
+        }
+        else
+        {
+            analysis.AppendLine("نقط انعطاف تقريبية (حيث يتغيّر التقعر):");
+            foreach (double ip in inflectionPoints.Take(5))
+                analysis.AppendLine($"x ≈ {Format.Number(ip)}");
         }
 
         var response = new
@@ -262,7 +414,8 @@ app.MapPost("/plot-equation", async (HttpContext context) =>
             left = yLeft,
             right = yRight,
             solutionX = solutionX,
-            solutionY = solutionY
+            solutionY = solutionY,
+            analysis = analysis.ToString()
         };
 
         await context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
@@ -289,6 +442,14 @@ class EquationResult
 {
     public string Result { get; set; } = "";
     public string Steps { get; set; } = "";
+}
+
+// ============================================================
+// ANGLE MODE (راديان / درجة) — يُضبط مرة فبداية كل طلب
+// ============================================================
+static class AngleMode
+{
+    public static readonly AsyncLocal<bool> UseRadians = new AsyncLocal<bool> { Value = false };
 }
 
 // ============================================================
@@ -484,17 +645,20 @@ class FunctionNode : ExprNode
     {
         double value = Argument.Evaluate(x);
         const double deg2rad = Math.PI / 180.0;
+        bool rad = AngleMode.UseRadians.Value;
+        double toUnit = rad ? 1.0 : deg2rad;
+        double fromUnit = rad ? 1.0 : (1.0 / deg2rad);
 
         try
         {
             return Name.ToLowerInvariant() switch
             {
-                "sin" => Math.Sin(value * deg2rad),
-                "cos" => Math.Cos(value * deg2rad),
-                "tan" => Math.Tan(value * deg2rad),
-                "asin" when value >= -1 && value <= 1 => Math.Asin(value) / deg2rad,
-                "acos" when value >= -1 && value <= 1 => Math.Acos(value) / deg2rad,
-                "atan" => Math.Atan(value) / deg2rad,
+                "sin" => Math.Sin(value * toUnit),
+                "cos" => Math.Cos(value * toUnit),
+                "tan" => Math.Tan(value * toUnit),
+                "asin" when value >= -1 && value <= 1 => Math.Asin(value) * fromUnit,
+                "acos" when value >= -1 && value <= 1 => Math.Acos(value) * fromUnit,
+                "atan" => Math.Atan(value) * fromUnit,
                 "log" when value > 0 => Math.Log10(value),
                 "ln" when value > 0 => Math.Log(value),
                 "sqrt" when value >= 0 => Math.Sqrt(value),
@@ -918,11 +1082,20 @@ static class EquationSolver
             var (outside, inside) = SimplifySqrt(-delta);
             bool perfect = inside == 1;
 
-            steps.AppendLine("الخطوة 2: بما أن Δ < 0 → حلول عقدية");
+            steps.AppendLine("الخطوة 2: بما أن Δ < 0 → لا يوجد حلول حقيقية، والحلول عقدية (مركبة)");
+            steps.AppendLine("لا يمكن أخذ الجذر التربيعي لعدد سالب ضمن الأعداد الحقيقية، فنستخدم الوحدة التخيلية i حيث i = √(-1):");
+            steps.AppendLine("√Δ = √(-1 × (-Δ)) = i√(-Δ)");
+            steps.AppendLine();
+            steps.AppendLine("الصيغة العامة تبقى كما هي: x = (-b ± √Δ) / 2a = (-b ± i√(-Δ)) / 2a");
+            steps.AppendLine($"-Δ = {Fr(-delta)}");
+            steps.AppendLine();
 
             string radical, decimalStr;
             if (perfect)
             {
+                steps.AppendLine($"√(-Δ) = {Math.Sqrt(-delta):F0} (جذر تام)");
+                steps.AppendLine($"الجزء الحقيقي: x = -b/2a = -({Fr(b)})/(2×{Fr(a)}) = {Fr(real)}");
+                steps.AppendLine($"الجزء التخيلي: √(-Δ)/2a = {Math.Sqrt(-delta):F0}/(2×{Fr(a)}) = {Fr(imagAbs)}");
                 radical = $"x1 = {Fr(real)} + {Fr(imagAbs)}i\nx2 = {Fr(real)} - {Fr(imagAbs)}i";
                 decimalStr = radical;
             }
@@ -932,9 +1105,19 @@ static class EquationSolver
                 double twoA = 2 * a;
                 long twoAInt = (long)Math.Round(twoA);
                 string denom = Math.Abs(twoA - twoAInt) < 1e-9 ? twoAInt.ToString(CultureInfo.InvariantCulture) : Fr(twoA);
+                steps.AppendLine($"√(-Δ) ليس جذرًا تامًا، نبسطه رمزيًا: √{Fr(-delta)} = {sq}");
+                steps.AppendLine($"الجزء الحقيقي: x = -b/2a = {Fr(real)}");
+                steps.AppendLine($"الجزء التخيلي: √(-Δ)/2a = {sq}/{denom}");
                 radical = $"x1 = {Fr(real)} + ({sq}/{denom})i\nx2 = {Fr(real)} - ({sq}/{denom})i";
                 decimalStr = $"x1 ≈ {Format.Number(real)} + {Format.Number(imagAbs)}i\nx2 ≈ {Format.Number(real)} - {Format.Number(imagAbs)}i";
             }
+
+            steps.AppendLine();
+            steps.AppendLine("النتيجة النهائية:");
+            steps.AppendLine(radical);
+            steps.AppendLine();
+            steps.AppendLine("ملاحظة: x1 وx2 هنا عددان مترافقان عقديًا (نفس الجزء الحقيقي، والجزء التخيلي متعاكس الإشارة).");
+
             return new QuadraticResult { Radical = radical, DecimalVal = decimalStr, Steps = steps.ToString() };
         }
     }
@@ -1101,7 +1284,7 @@ static class SpecialEquationSolver
     public static EquationResult? TrySolve(string left, string right, string original)
     {
         // ===== ln(f(x)) = ln(g(x)) =====
-        if (left.StartsWith("ln(") && right.StartsWith("ln("))
+        if (IsFullFunctionCall(left, "ln") && IsFullFunctionCall(right, "ln"))
         {
             string innerLeft = left.Substring(3, left.Length - 4);
             string innerRight = right.Substring(3, right.Length - 4);
@@ -1132,7 +1315,7 @@ static class SpecialEquationSolver
         }
 
         // ===== exp(f(x)) = exp(g(x)) =====
-        if (left.StartsWith("exp(") && right.StartsWith("exp("))
+        if (IsFullFunctionCall(left, "exp") && IsFullFunctionCall(right, "exp"))
         {
             string innerLeft = left.Substring(4, left.Length - 5);
             string innerRight = right.Substring(4, right.Length - 5);
@@ -1159,7 +1342,7 @@ static class SpecialEquationSolver
         }
 
         // ===== sin(f(x)) = sin(g(x)) =====
-        if (left.StartsWith("sin(") && right.StartsWith("sin("))
+        if (IsFullFunctionCall(left, "sin") && IsFullFunctionCall(right, "sin"))
         {
             string innerLeft = left.Substring(4, left.Length - 5);
             string innerRight = right.Substring(4, right.Length - 5);
@@ -1242,11 +1425,17 @@ static class SpecialEquationSolver
         }
 
         // ===== function(inner) = target (حيث target عدد ثابت) =====
+        // ===== function(inner) = target (حيث target عدد ثابت) =====
         Match functionMatch = Regex.Match(left, @"^(sin|cos|tan|asin|acos|atan|ln|log|exp|sqrt)(.*)$", RegexOptions.IgnoreCase);
         if (!functionMatch.Success) return null;
 
         string function = functionMatch.Groups[1].Value.ToLowerInvariant();
         string inner = functionMatch.Groups[2].Value;
+
+        // تحقق أن الدالة هي كامل الطرف الأيسر فعلاً (وليس جزءًا منه فقط، مثل sqrt(x)+x
+        // حيث يوجد "+x" خارج الجذر) — وإلا فهذه الطريقة المختصرة غير صالحة هنا إطلاقًا،
+        // ويجب أن تُترك للحل العددي العام الذي يتعامل مع التعبير كاملاً بشكل صحيح
+        if (!IsBalancedFullMatch(inner)) return null;
 
         if (!TryEvaluate(right, out double targetValue)) return null;
         if (!TryGetLinear(inner, out double coefficient, out double constant)) return null;
@@ -1254,6 +1443,12 @@ static class SpecialEquationSolver
 
         string innerLabel = (inner.StartsWith("(") && inner.EndsWith(")")) ? inner[1..^1] : inner;
         innerLabel = Format.PrettyEquation(innerLabel);
+
+        // وحدة الزاوية (راديان أو درجة) المستخدمة فحل معادلات الدوال المثلثية أدناه
+        bool useRadians = AngleMode.UseRadians.Value;
+        double halfTurn = useRadians ? Math.PI : 180.0;
+        double radToUnit = useRadians ? 1.0 : (180.0 / Math.PI);
+        string unitSuffix = useRadians ? "" : "°";
 
         // ===== ln =====
         if (function == "ln")
@@ -1407,9 +1602,9 @@ static class SpecialEquationSolver
             if (targetValue < -1 || targetValue > 1)
                 return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = $"المعادلة:\n{original}\n\nقيم دالة sin تتراوح دائمًا بين -1 و1، وبما أن {Format.Number(targetValue)} خارج هذا المجال فلا يوجد حل حقيقي." };
 
-            double angle = Math.Asin(targetValue) * 180 / Math.PI;
+            double angle = Math.Asin(targetValue) * radToUnit;
             double x1 = (angle - constant) / coefficient;
-            double x2 = (180 - angle - constant) / coefficient;
+            double x2 = (halfTurn - angle - constant) / coefficient;
 
             var s = new StringBuilder();
             s.AppendLine($"المعادلة:\n{original}");
@@ -1418,16 +1613,16 @@ static class SpecialEquationSolver
             s.AppendLine("قيمة sin(الزاوية) تتراوح دائمًا بين -1 و1. لإيجاد الزاوية من قيمة sin نستخدم الدالة العكسية arcsin (تُكتب أيضًا sin⁻¹).");
             s.AppendLine();
             s.AppendLine("٢. خطوات الحل");
-            s.AppendLine($"المعادلة الأصلية: sin({innerLabel}) = {Format.Number(targetValue)}");
+            s.AppendLine($"المعادلة الأصلية: sin({innerLabel}) = {Format.Number(targetValue)}  (الوحدة: {(useRadians ? "راديان" : "درجة")})");
             s.AppendLine("نطبّق arcsin على الطرفين:");
-            s.AppendLine($"{innerLabel} = arcsin({Format.Number(targetValue)}) ≈ {Format.Number(angle)}°");
-            s.AppendLine($"وبسبب دورية دالة الجيب، يوجد حل ثانٍ داخل نفس الدورة: {innerLabel} ≈ {Format.Number(180 - angle)}°");
+            s.AppendLine($"{innerLabel} = arcsin({Format.Number(targetValue)}) ≈ {Format.Number(angle)}{unitSuffix}");
+            s.AppendLine($"وبسبب دورية دالة الجيب، يوجد حل ثانٍ داخل نفس الدورة: {innerLabel} ≈ {Format.Number(halfTurn - angle)}{unitSuffix}");
             s.AppendLine();
             s.AppendLine("٣. النتيجة النهائية");
             s.AppendLine($"x₁ ≈ {Format.Number(x1)}");
             s.AppendLine($"x₂ ≈ {Format.Number(x2)}");
             s.AppendLine();
-            s.AppendLine("ملاحظة: بسبب دورية دالة sin (تتكرر كل 360°)، توجد حلول أخرى كثيرة تختلف عن x₁ وx₂ بمضاعفات صحيحة للدورة.");
+            s.AppendLine($"ملاحظة: بسبب دورية دالة sin (تتكرر كل {(useRadians ? "2π" : "360°")})، توجد حلول أخرى كثيرة تختلف عن x₁ وx₂ بمضاعفات صحيحة للدورة.");
 
             return new EquationResult { Result = $"x₁ ≈ {Format.Number(x1)}\nx₂ ≈ {Format.Number(x2)}", Steps = s.ToString() };
         }
@@ -1438,7 +1633,7 @@ static class SpecialEquationSolver
             if (targetValue < -1 || targetValue > 1)
                 return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = $"المعادلة:\n{original}\n\nقيم دالة cos تتراوح دائمًا بين -1 و1، فلا يوجد حل حقيقي." };
 
-            double angle = Math.Acos(targetValue) * 180 / Math.PI;
+           double angle = Math.Acos(targetValue) * radToUnit;
             double x1 = (angle - constant) / coefficient;
             double x2 = (-angle - constant) / coefficient;
 
@@ -1449,15 +1644,15 @@ static class SpecialEquationSolver
             s.AppendLine("قيمة cos(الزاوية) تتراوح دائمًا بين -1 و1. لإيجاد الزاوية من قيمة cos نستخدم الدالة العكسية arccos (تُكتب أيضًا cos⁻¹).");
             s.AppendLine();
             s.AppendLine("٢. خطوات الحل");
-            s.AppendLine($"المعادلة الأصلية: cos({innerLabel}) = {Format.Number(targetValue)}");
+            s.AppendLine($"المعادلة الأصلية: cos({innerLabel}) = {Format.Number(targetValue)}  (الوحدة: {(useRadians ? "راديان" : "درجة")})");
             s.AppendLine("نطبّق arccos على الطرفين:");
-            s.AppendLine($"{innerLabel} = ±arccos({Format.Number(targetValue)}) ≈ ±{Format.Number(angle)}°");
+            s.AppendLine($"{innerLabel} = ±arccos({Format.Number(targetValue)}) ≈ ±{Format.Number(angle)}{unitSuffix}");
             s.AppendLine();
             s.AppendLine("٣. النتيجة النهائية");
             s.AppendLine($"x₁ ≈ {Format.Number(x1)}");
             s.AppendLine($"x₂ ≈ {Format.Number(x2)}");
             s.AppendLine();
-            s.AppendLine("ملاحظة: بسبب دورية دالة cos (تتكرر كل 360°)، توجد حلول أخرى تختلف عن x₁ وx₂ بمضاعفات صحيحة للدورة.");
+            s.AppendLine($"ملاحظة: بسبب دورية دالة cos (تتكرر كل {(useRadians ? "2π" : "360°")})، توجد حلول أخرى تختلف عن x₁ وx₂ بمضاعفات صحيحة للدورة.");
 
             return new EquationResult { Result = $"x₁ ≈ {Format.Number(x1)}\nx₂ ≈ {Format.Number(x2)}", Steps = s.ToString() };
         }
@@ -1465,7 +1660,7 @@ static class SpecialEquationSolver
         // ===== tan =====
         if (function == "tan")
         {
-            double angle = Math.Atan(targetValue) * 180 / Math.PI;
+            double angle = Math.Atan(targetValue) * radToUnit;
             double x = (angle - constant) / coefficient;
 
             var s = new StringBuilder();
@@ -1475,14 +1670,14 @@ static class SpecialEquationSolver
             s.AppendLine("الدالة tan(الزاوية) = sin/cos، وقيمتها يمكن أن تكون أي عدد حقيقي. الدالة العكسية arctan (تُكتب أيضًا tan⁻¹) تعطي الزاوية من قيمة tan.");
             s.AppendLine();
             s.AppendLine("٢. خطوات الحل");
-            s.AppendLine($"المعادلة الأصلية: tan({innerLabel}) = {Format.Number(targetValue)}");
+            s.AppendLine($"المعادلة الأصلية: tan({innerLabel}) = {Format.Number(targetValue)}  (الوحدة: {(useRadians ? "راديان" : "درجة")})");
             s.AppendLine("نطبّق arctan على الطرفين:");
-            s.AppendLine($"{innerLabel} = arctan({Format.Number(targetValue)}) ≈ {Format.Number(angle)}°");
+            s.AppendLine($"{innerLabel} = arctan({Format.Number(targetValue)}) ≈ {Format.Number(angle)}{unitSuffix}");
             s.AppendLine();
             s.AppendLine("٣. النتيجة النهائية");
             s.AppendLine($"x ≈ {Format.Number(x)}");
             s.AppendLine();
-            s.AppendLine("ملاحظة: بسبب دورية دالة tan (تتكرر كل 180°)، توجد حلول أخرى كثيرة.");
+            s.AppendLine($"ملاحظة: بسبب دورية دالة tan (تتكرر كل {(useRadians ? "π" : "180°")})، توجد حلول أخرى كثيرة.");
 
             return new EquationResult { Result = $"x ≈ {Format.Number(x)}", Steps = s.ToString() };
         }
@@ -1490,21 +1685,22 @@ static class SpecialEquationSolver
         // ===== asin =====
         if (function == "asin")
         {
-            if (targetValue < -90 || targetValue > 90)
-                return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = $"المعادلة:\n{original}\n\nالمجال الأساسي لدالة arcsin هو من -90° إلى 90°، فلا يوجد حل حقيقي." };
+            double halfTurnQuarter = useRadians ? Math.PI / 2 : 90.0;
+            if (targetValue < -halfTurnQuarter || targetValue > halfTurnQuarter)
+                return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = $"المعادلة:\n{original}\n\nالمجال الأساسي لدالة arcsin هو من {Format.Number(-halfTurnQuarter)} إلى {Format.Number(halfTurnQuarter)}{unitSuffix}، فلا يوجد حل حقيقي." };
 
-            double required = Math.Sin(targetValue * Math.PI / 180);
+            double required = Math.Sin(useRadians ? targetValue : targetValue * Math.PI / 180);
 
             var s = new StringBuilder();
             s.AppendLine($"المعادلة:\n{original}");
             s.AppendLine();
             s.AppendLine("١. مفهوم arcsin");
-            s.AppendLine("الدالة arcsin(y) تعطي الزاوية (بين -90° و90°) التي جيبها يساوي y. لإلغاء arcsin نطبّق sin على الطرفين.");
+            s.AppendLine($"الدالة arcsin(y) تعطي الزاوية (بين {Format.Number(-halfTurnQuarter)} و{Format.Number(halfTurnQuarter)}{unitSuffix}) التي جيبها يساوي y. لإلغاء arcsin نطبّق sin على الطرفين.");
             s.AppendLine();
             s.AppendLine("٢. خطوات الحل");
-            s.AppendLine($"المعادلة الأصلية: arcsin({innerLabel}) = {Format.Number(targetValue)}°");
+            s.AppendLine($"المعادلة الأصلية: arcsin({innerLabel}) = {Format.Number(targetValue)}{unitSuffix}");
             s.AppendLine("نطبّق sin على الطرفين:");
-            s.AppendLine($"{innerLabel} = sin({Format.Number(targetValue)}°) ≈ {Format.Number(required)}");
+            s.AppendLine($"{innerLabel} = sin({Format.Number(targetValue)}{unitSuffix}) ≈ {Format.Number(required)}");
 
             string linStepsAsin = LinearArgumentSteps(coefficient, constant, innerLabel, required, out double xAsin);
             if (!string.IsNullOrEmpty(linStepsAsin)) s.Append(linStepsAsin);
@@ -1519,22 +1715,21 @@ static class SpecialEquationSolver
         // ===== acos =====
         if (function == "acos")
         {
-            if (targetValue < 0 || targetValue > 180)
-                return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = $"المعادلة:\n{original}\n\nالمجال الأساسي لدالة arccos هو من 0° إلى 180°، فلا يوجد حل حقيقي." };
+            if (targetValue < 0 || targetValue > halfTurn)
+                return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = $"المعادلة:\n{original}\n\nالمجال الأساسي لدالة arccos هو من 0 إلى {Format.Number(halfTurn)}{unitSuffix}، فلا يوجد حل حقيقي." };
 
-            double required = Math.Cos(targetValue * Math.PI / 180);
+            double required = Math.Cos(useRadians ? targetValue : targetValue * Math.PI / 180);
 
             var s = new StringBuilder();
             s.AppendLine($"المعادلة:\n{original}");
             s.AppendLine();
             s.AppendLine("١. مفهوم arccos");
-            s.AppendLine("الدالة arccos(y) تعطي الزاوية (بين 0° و180°) التي جيب تمامها يساوي y. لإلغاء arccos نطبّق cos على الطرفين.");
+            s.AppendLine($"الدالة arccos(y) تعطي الزاوية (بين 0 و{Format.Number(halfTurn)}{unitSuffix}) التي جيب تمامها يساوي y. لإلغاء arccos نطبّق cos على الطرفين.");
             s.AppendLine();
             s.AppendLine("٢. خطوات الحل");
-            s.AppendLine($"المعادلة الأصلية: arccos({innerLabel}) = {Format.Number(targetValue)}°");
+            s.AppendLine($"المعادلة الأصلية: arccos({innerLabel}) = {Format.Number(targetValue)}{unitSuffix}");
             s.AppendLine("نطبّق cos على الطرفين:");
-            s.AppendLine($"{innerLabel} = cos({Format.Number(targetValue)}°) ≈ {Format.Number(required)}");
-
+            s.AppendLine($"{innerLabel} = cos({Format.Number(targetValue)}{unitSuffix}) ≈ {Format.Number(required)}");
             string linStepsAcos = LinearArgumentSteps(coefficient, constant, innerLabel, required, out double xAcos);
             if (!string.IsNullOrEmpty(linStepsAcos)) s.Append(linStepsAcos);
 
@@ -1548,19 +1743,18 @@ static class SpecialEquationSolver
         // ===== atan =====
         if (function == "atan")
         {
-            double required = Math.Tan(targetValue * Math.PI / 180);
+            double required = Math.Tan(useRadians ? targetValue : targetValue * Math.PI / 180);
 
             var s = new StringBuilder();
             s.AppendLine($"المعادلة:\n{original}");
             s.AppendLine();
             s.AppendLine("١. مفهوم arctan");
-            s.AppendLine("الدالة arctan(y) تعطي الزاوية (بين -90° و90°) التي ظلها يساوي y. لإلغاء arctan نطبّق tan على الطرفين.");
+            s.AppendLine("الدالة arctan(y) تعطي الزاوية التي ظلها يساوي y. لإلغاء arctan نطبّق tan على الطرفين.");
             s.AppendLine();
             s.AppendLine("٢. خطوات الحل");
-            s.AppendLine($"المعادلة الأصلية: arctan({innerLabel}) = {Format.Number(targetValue)}°");
+            s.AppendLine($"المعادلة الأصلية: arctan({innerLabel}) = {Format.Number(targetValue)}{unitSuffix}");
             s.AppendLine("نطبّق tan على الطرفين:");
-            s.AppendLine($"{innerLabel} = tan({Format.Number(targetValue)}°) ≈ {Format.Number(required)}");
-
+            s.AppendLine($"{innerLabel} = tan({Format.Number(targetValue)}{unitSuffix}) ≈ {Format.Number(required)}");
             string linStepsAtan = LinearArgumentSteps(coefficient, constant, innerLabel, required, out double xAtan);
             if (!string.IsNullOrEmpty(linStepsAtan)) s.Append(linStepsAtan);
 
@@ -1611,6 +1805,32 @@ static class SpecialEquationSolver
             return true;
         }
         catch { return false; }
+    }
+
+    // يتحقق أن "inner" يبدأ بـ '(' وأن قوسها المطابق هو آخر حرف فالسلسلة —
+    // أي أن الدالة تغطي كامل بقية الطرف فعلاً، وليس جزءًا منه فقط (مثل "(x)+x")
+    static bool IsBalancedFullMatch(string inner)
+    {
+        if (inner.Length < 2 || inner[0] != '(') return false;
+        int depth = 0;
+        for (int i = 0; i < inner.Length; i++)
+        {
+            if (inner[i] == '(') depth++;
+            else if (inner[i] == ')')
+            {
+                depth--;
+                if (depth == 0) return i == inner.Length - 1;
+            }
+        }
+        return false;
+    }
+
+    // يتحقق أن "expr" بالكامل هو استدعاء دالة واحد مثل "ln(...)" بلا أي محتوى إضافي بعده
+    static bool IsFullFunctionCall(string expr, string funcName)
+    {
+        if (!expr.StartsWith(funcName, StringComparison.OrdinalIgnoreCase)) return false;
+        string rest = expr.Substring(funcName.Length);
+        return IsBalancedFullMatch(rest);
     }
 }
 
@@ -1874,11 +2094,12 @@ static class NumericalEquationSolver
         // الحل العددي
         steps.Add("الحل العددي");
         steps.Add("");
-        steps.Add("هذه المعادلة تحتوي على دوال أو تعابير لا يمكن عزل x فيها");
-        steps.Add("باستخدام العمليات الجبرية المعتادة فقط.");
+        steps.Add("جرّبنا أولاً الحلول الجبرية (تحويلها لمعادلة كثيرة حدود، أو تطبيق الحالات الجبرية");
+        steps.Add("الخاصة مثل ln=ln أو a^x=b)، ولم تنجح أي منها مع هذه المعادلة تحديدًا،");
+        steps.Add("لأنها تحتوي على دوال أو تعابير لا يمكن عزل x فيها بالعمليات الجبرية المعتادة.");
         steps.Add("");
-        steps.Add("لذلك سنحوّل المعادلة إلى مسألة إيجاد جذر للدالة.");
-
+        steps.Add("لذلك ننتقل الآن للحل العددي، ونحوّل المعادلة إلى مسألة إيجاد جذر للدالة.");
+        
         steps.Add("");
         steps.Add("الخطوة 1: تحويل المعادلة إلى f(x) = 0");
         steps.Add("نأخذ الطرف الأيسر ونطرح منه الطرف الأيمن:");

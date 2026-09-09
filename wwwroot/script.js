@@ -41,6 +41,17 @@ function closeAllDrawers() {
 }
 
 // ============================================================
+// وضع الزاوية (درجة / راديان)
+// ============================================================
+let angleMode = 'deg';
+
+function setAngleMode(mode) {
+    angleMode = mode;
+    document.getElementById('angleDegBtn').classList.toggle('active', mode === 'deg');
+    document.getElementById('angleRadBtn').classList.toggle('active', mode === 'rad');
+}
+
+// ============================================================
 // NORMAL CALCULATOR
 // ============================================================
 function getDisplay() { return document.getElementById('display'); }
@@ -80,7 +91,7 @@ async function calculate() {
     try {
         const response = await fetch('/calculate', {
             method: 'POST',
-            body: new URLSearchParams({ expr }),
+            body: new URLSearchParams({ expr, angleMode }),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         if (!response.ok) throw new Error();
@@ -197,7 +208,7 @@ async function solvePolynomialExpr() {
     try {
         const response = await fetch('/solve-polynomial-expr', {
             method: 'POST',
-            body: new URLSearchParams({ expr }),
+            body: new URLSearchParams({ expr, angleMode }),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         if (!response.ok) throw new Error();
@@ -249,12 +260,12 @@ async function plotEquation() {
         return;
     }
 
-    chartContainer.style.display = 'block';
+    chartContainer.classList.add('open');
 
     try {
         const response = await fetch('/plot-equation', {
             method: 'POST',
-            body: new URLSearchParams({ expr }),
+            body: new URLSearchParams({ expr, angleMode }),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
@@ -262,14 +273,16 @@ async function plotEquation() {
         const data = await response.json();
         if (data.error) {
             alert('خطأ: ' + data.error);
-            chartContainer.style.display = 'none';
+            chartContainer.classList.remove('open');
             return;
         }
         if (!data.x || data.x.length === 0) {
             alert('لا توجد بيانات كافية للرسم.');
-            chartContainer.style.display = 'none';
+            chartContainer.classList.remove('open');
             return;
         }
+
+        document.getElementById('chartAnalysis').textContent = data.analysis || '';
 
         if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
 
@@ -331,7 +344,7 @@ async function plotEquation() {
 
 // إغلاق الرسم البياني
 function closeChart() {
-    document.getElementById('chartContainer').style.display = 'none';
+    document.getElementById('chartContainer').classList.remove('open');
     if (chartInstance) {
         chartInstance.destroy();
         chartInstance = null;
