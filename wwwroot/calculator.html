@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Solver</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+<div class="calculator">
+
+    <div class="back-nav">
+        <a href="index.html">↩ العودة إلى المنصة التعليمية</a>
+    </div>
+
+    <div class="app-title">
+        <h1>Math Solver</h1>
+        <p>حل المعادلات خطوة بخطوة</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('calc')">حاسبة</button>
+        <button class="tab-btn" onclick="switchTab('quad')">تربيعية</button>
+        <button class="tab-btn" onclick="switchTab('poly')">معادلة</button>
+    </div>
+
+    <div class="angle-mode-row">
+        <button class="angle-mode-btn active" id="angleDegBtn" onclick="setAngleMode('deg')">درجة °</button>
+        <button class="angle-mode-btn" id="angleRadBtn" onclick="setAngleMode('rad')">راديان</button>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- حاسبة -->
+    <!-- ========================================= -->
+    <div id="calcTab" class="tab-content active">
+        <input type="text" id="display" readonly dir="auto" placeholder="اكتب تعبيراً...">
+        <div class="operations">
+            <button class="op-btn" onclick="insert('+')">+</button>
+            <button class="op-btn" onclick="insert('-')">−</button>
+            <button class="op-btn" onclick="insert('*')">×</button>
+            <button class="op-btn" onclick="insert('/')">÷</button>
+            <button class="op-btn" onclick="insert('%')">%</button>
+            <button class="op-btn" onclick="insert('^')">^</button>
+            <button class="op-btn" onclick="insert('(')">(</button>
+            <button class="op-btn" onclick="insert(')')">)</button>
+            <button class="op-btn" onclick="insert('.')">.</button>
+        </div>
+
+        <button class="toggle-advanced" onclick="toggleDrawer('advancedOps')">
+            <span>عمليات متقدمة</span>
+            <span>▸</span>
+        </button>
+
+        <div class="buttons">
+            <button onclick="insert('1')">1</button>
+            <button onclick="insert('2')">2</button>
+            <button onclick="insert('3')">3</button>
+            <button onclick="insert('4')">4</button>
+            <button onclick="insert('5')">5</button>
+            <button onclick="insert('6')">6</button>
+            <button onclick="insert('7')">7</button>
+            <button onclick="insert('8')">8</button>
+            <button onclick="insert('9')">9</button>
+            <button class="btn-clear" onclick="clearAll()">C</button>
+            <button onclick="insert('0')">0</button>
+            <button class="btn-backspace" onclick="backspace()">⌫</button>
+        </div>
+        <button class="btn-equal" onclick="calculate()">=</button>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- تربيعية -->
+    <!-- ========================================= -->
+    <div id="quadTab" class="tab-content">
+        <p class="quad-formula">ax² + bx + c = 0</p>
+        <p class="quad-hint">اترك a = 0 إذا أردت حل معادلة من الدرجة الأولى.</p>
+        <div class="quad-inputs">
+            <input type="text" id="coefA" placeholder="a">
+            <input type="text" id="coefB" placeholder="b">
+            <input type="text" id="coefC" placeholder="c">
+        </div>
+        <button class="btn-equal" onclick="solveQuadratic()">حل المعادلة</button>
+        <div class="result-with-toggle" style="gap: 10px;">
+            <textarea id="quadResult" readonly dir="auto" class="poly-result" placeholder="الحل"></textarea>
+            <button class="btn-plot" onclick="plotEquation()" style="width:45px; height:45px; background: #6366f1; color:#fff; border:0; border-radius:10px; font-size:16px; cursor:pointer;">📊</button>
+        </div>
+        <button class="btn-steps" onclick="openStepsModal(quadStepsText)">📖 خطوات الحل</button>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- معادلة -->
+    <!-- ========================================= -->
+    <div id="polyTab" class="tab-content">
+        <p class="quad-hint">اكتب أي معادلة بدلالة x.</p>
+        <div class="examples">
+            <button onclick="setExample('2x+5=17')">2x+5=17</button>
+            <button onclick="setExample('x^2-5x+6=0')">x²−5x+6=0</button>
+            <button onclick="setExample('sin(x)=0.5')">sin(x)=0.5</button>
+            <button onclick="setExample('ln(x)=2')">ln(x)=2</button>
+            <button onclick="setExample('2^x=16')">2ˣ=16</button>
+        </div>
+        <input type="text" id="polyDisplay" readonly dir="auto" placeholder="اكتب المعادلة هنا">
+        <div class="operations">
+            <button class="op-btn" onclick="insertPoly('x')">x</button>
+            <button class="op-btn" onclick="insertPoly('+')">+</button>
+            <button class="op-btn" onclick="insertPoly('-')">−</button>
+            <button class="op-btn" onclick="insertPoly('*')">×</button>
+            <button class="op-btn" onclick="insertPoly('/')">÷</button>
+            <button class="op-btn" onclick="insertPoly('^')">^</button>
+            <button class="op-btn" onclick="insertPoly('(')">(</button>
+            <button class="op-btn" onclick="insertPoly(')')">)</button>
+            <button class="op-btn" onclick="insertPoly('=')">=</button>
+            <button class="op-btn" onclick="insertPoly('.')">.</button>
+        </div>
+
+        <button class="toggle-advanced" onclick="toggleDrawer('functionButtonsDrawer')">
+            <span>الدوال الرياضية (sin, ln, √ ...)</span>
+            <span>▸</span>
+        </button>
+
+        <div class="buttons">
+            <button onclick="insertPoly('1')">1</button>
+            <button onclick="insertPoly('2')">2</button>
+            <button onclick="insertPoly('3')">3</button>
+            <button onclick="insertPoly('4')">4</button>
+            <button onclick="insertPoly('5')">5</button>
+            <button onclick="insertPoly('6')">6</button>
+            <button onclick="insertPoly('7')">7</button>
+            <button onclick="insertPoly('8')">8</button>
+            <button onclick="insertPoly('9')">9</button>
+            <button class="btn-clear" onclick="clearPoly()">C</button>
+            <button onclick="insertPoly('0')">0</button>
+            <button class="btn-backspace" onclick="backspacePoly()">⌫</button>
+        </div>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button class="btn-equal" onclick="solvePolynomialExpr()" style="flex:1;">حل المعادلة</button>
+            <button class="btn-plot" onclick="plotEquation()" style="flex:0.5; background: #6366f1; color:#fff; border:0; border-radius:10px; height:50px; font-size:16px; font-weight:bold; cursor:pointer;">📊 رسم بياني</button>
+        </div>
+        <textarea id="polyResult" readonly dir="auto" class="poly-result" placeholder="الحل"></textarea>
+        <button class="btn-steps" onclick="openStepsModal(polyStepsText)">📖 خطوات الحل</button>
+    </div>
+
+</div>
+
+<!-- ========================================= -->
+<!-- الدرج الجانبي: عمليات متقدمة (تبويب حاسبة) -->
+<!-- ========================================= -->
+<div class="side-drawer" id="advancedOps">
+    <button class="drawer-close-btn" onclick="closeAllDrawers()">✕ إغلاق</button>
+    <span class="side-drawer-title">عمليات متقدمة</span>
+    <button class="op-btn" onclick="insertFunc('sin')">sin</button>
+    <button class="op-btn" onclick="insertFunc('cos')">cos</button>
+    <button class="op-btn" onclick="insertFunc('tan')">tan</button>
+    <button class="op-btn" onclick="insertFunc('asin')">sin⁻¹</button>
+    <button class="op-btn" onclick="insertFunc('acos')">cos⁻¹</button>
+    <button class="op-btn" onclick="insertFunc('atan')">tan⁻¹</button>
+    <button class="op-btn" onclick="insertFunc('log')">log</button>
+    <button class="op-btn" onclick="insertFunc('ln')">ln</button>
+    <button class="op-btn" onclick="insertFunc('sqrt')">√</button>
+    <button class="op-btn" onclick="insertFunc('exp')">eˣ</button>
+    <button class="op-btn" onclick="insert('pi')">π</button>
+    <button class="op-btn" onclick="insert('e')">e</button>
+</div>
+
+<!-- ========================================= -->
+<!-- الدرج الجانبي: الدوال الرياضية (تبويب معادلة) -->
+<!-- ========================================= -->
+<div class="side-drawer" id="functionButtonsDrawer">
+    <button class="drawer-close-btn" onclick="closeAllDrawers()">✕ إغلاق</button>
+    <span class="side-drawer-title">الدوال الرياضية</span>
+    <button onclick="insertPolyFunc('sin')">sin</button>
+    <button onclick="insertPolyFunc('cos')">cos</button>
+    <button onclick="insertPolyFunc('tan')">tan</button>
+    <button onclick="insertPolyFunc('asin')">sin⁻¹</button>
+    <button onclick="insertPolyFunc('acos')">cos⁻¹</button>
+    <button onclick="insertPolyFunc('atan')">tan⁻¹</button>
+    <button onclick="insertPolyFunc('log')">log</button>
+    <button onclick="insertPolyFunc('ln')">ln</button>
+    <button onclick="insertPolyFunc('sqrt')">√</button>
+    <button onclick="insertPolyFunc('exp')">eˣ</button>
+    <button onclick="insertPoly('pi')">π</button>
+    <button onclick="insertPoly('e')">e</button>
+</div>
+
+<div id="drawerBackdrop" class="drawer-backdrop" onclick="closeAllDrawers()"></div>
+
+<!-- ========================================= -->
+<!-- حاوية الرسم البياني مع زر إغلاق -->
+<!-- ========================================= -->
+<div id="chartContainer">
+    <div class="chart-box">
+        <button onclick="closeChart()" class="chart-close-btn">✕</button>
+        <canvas id="chartCanvas" style="width:100%; max-height:280px; background:#1e1e32; border-radius:12px;"></canvas>
+        <div id="chartAnalysis" class="chart-analysis"></div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- مودال الخطوات -->
+<!-- ========================================= -->
+<div id="stepsModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span>📖 خطوات الحل</span>
+            <button class="modal-close" onclick="closeStepsModal()">✕</button>
+        </div>
+        <pre id="stepsContent" class="modal-content"></pre>
+    </div>
+</div>
+
+<footer>Math Solver © 2026</footer>
+
+<script src="script.js"></script>
+<script>
+(function () {
+    var params = new URLSearchParams(window.location.search);
+    var tab = params.get('tab');
+    if (tab) switchTab(tab);
+
+    var expr = params.get('expr');
+    if (expr !== null) {
+        if (tab === 'poly') {
+            getPolyDisplay().value = formatExponent(expr);
+        } else {
+            getDisplay().value = expr;
+        }
+    }
+
+    var a = params.get('a');
+    var b = params.get('b');
+    var c = params.get('c');
+    if (tab === 'quad' && a !== null && b !== null && c !== null) {
+        document.getElementById('coefA').value = a;
+        document.getElementById('coefB').value = b;
+        document.getElementById('coefC').value = c;
+        solveQuadratic();
+    }
+})();
+</script>
+</body>
+</html>

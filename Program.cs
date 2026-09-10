@@ -1374,6 +1374,10 @@ static class SpecialEquationSolver
             }
         }
 
+        // ===== √(كثيرة حدود) ± كثيرة حدود = كثيرة حدود: عزل الجذر، تربيع الطرفين، حل تربيعية/خطية، فحص الحلول الدخيلة =====
+        EquationResult? sqrtResult = TrySolveSingleSqrt(left, right, original);
+        if (sqrtResult != null) return sqrtResult;
+
         // ============================================================
         // الحالات التي تتطلب أن يكون الطرف الأيمن عدداً ثابتاً
         // ============================================================
@@ -1832,8 +1836,195 @@ static class SpecialEquationSolver
         string rest = expr.Substring(funcName.Length);
         return IsBalancedFullMatch(rest);
     }
-}
 
+    // يفكك تعبير جمع/طرح إلى قائمة حدود مع إشارة كل حد (true = يُطرح)
+    static void FlattenSum(ExprNode node, bool negate, List<(bool negative, ExprNode term)> terms)
+    {
+        if (node is BinaryNode bnPlus && bnPlus.Operator == '+')
+        {
+            FlattenSum(bnPlus.Left, negate, terms);
+            FlattenSum(bnPlus.Right, negate, terms);
+        }
+        else if (node is BinaryNode bnMinus && bnMinus.Operator == '-')
+        {
+            FlattenSum(bnMinus.Left, negate, terms);
+            FlattenSum(bnMinus.Right, !negate, terms);
+        }
+        else if (node is UnaryNode unMinus && unMinus.Operator == '-')
+        {
+            FlattenSum(unMinus.Operand, !negate, terms);
+        }
+        else if (node is UnaryNode unPlus && unPlus.Operator == '+')
+        {
+            FlattenSum(unPlus.Operand, negate, terms);
+        }
+        else
+        {
+            terms.Add((negate, node));
+        }
+    }
+
+    static double EvaluatePoly(Poly p, double x)
+    {
+        double result = 0;
+        for (int i = p.C.Length - 1; i >= 0; i--) result = result * x + p.C[i];
+        return result;
+    }
+
+    static string PolyToString(Poly p)
+    {
+        var sb = new StringBuilder();
+        for (int i = p.C.Length - 1; i >= 0; i--)
+        {
+            double coef = p.C[i];
+            if (Math.Abs(coef) < 1e-12) continue;
+            double absCoef = Math.Abs(coef);
+            string magnitude = Math.Abs(absCoef - 1) < 1e-9 ? "" : Format.Fraction(absCoef);
+            string term = i == 0 ? Format.Fraction(absCoef)
+                        : i == 1 ? $"{magnitude}x"
+                        : $"{magnitude}x^{i}";
+            if (sb.Length == 0) sb.Append(coef < 0 ? $"-{term}" : term);
+            else sb.Append(coef < 0 ? $" - {term}" : $" + {term}");
+        }
+        return sb.Length == 0 ? "0" : sb.ToString();
+    }
+
+    // ===== يعالج معادلات فيها جذر تربيعي واحد بالضبط ممزوج بكثيرة حدود، مثل √x + x = 1 =====
+    // الأسلوب: عزل الجذر فطرف بمفرده (√(g(x)) = h(x)) ثم تربيع الطرفين (g(x) = h(x)²)
+    // ثم حل المعادلة الناتجة (خطية أو تربيعية) ثم استبعاد الحلول الدخيلة (حيث h(x) < 0)
+    static EquationResult? TrySolveSingleSqrt(string left, string right, string original)
+    {
+        ExprNode leftTree, rightTree;
+        try
+        {
+            leftTree = ExpressionParser.Parse(left);
+            rightTree = ExpressionParser.Parse(right);
+        }
+        catch { return null; }
+
+        var terms = new List<(bool negative, ExprNode term)>();
+        FlattenSum(leftTree, false, terms);
+        FlattenSum(rightTree, true, terms);
+
+        var sqrtTerms = terms.Where(t => t.term is FunctionNode fn && fn.Name.Equals("sqrt", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (sqrtTerms.Count != 1) return null;
+
+        var (sqrtNegative, sqrtNode) = sqrtTerms[0];
+        var sqrtFn = (FunctionNode)sqrtNode;
+        if (!sqrtFn.Argument.ContainsX) return null;
+        if (!PolynomialConverter.TryConvert(sqrtFn.Argument, out Poly gPoly)) return null;
+        if (gPoly.Degree < 1) return null;
+
+        Poly restPoly = Poly.Constant(0);
+        foreach (var (neg, term) in terms)
+        {
+            if (term is FunctionNode fnCheck && fnCheck.Name.Equals("sqrt", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!PolynomialConverter.TryConvert(term, out Poly p)) return null;
+            restPoly = neg ? restPoly - p : restPoly + p;
+        }
+
+        double sqrtSign = sqrtNegative ? -1.0 : 1.0;
+        Poly hPoly = restPoly * (-sqrtSign); // √(g(x)) = h(x)
+        Poly resultPoly = (hPoly * hPoly) - gPoly; // بعد التربيع: h(x)² - g(x) = 0
+        int degree = resultPoly.Degree;
+        if (degree < 1 || degree > 2) return null;
+
+        string gLabel = Format.PrettyEquation(PolyToString(gPoly));
+        string hLabel = Format.PrettyEquation(PolyToString(hPoly));
+
+        var s = new StringBuilder();
+        s.AppendLine($"المعادلة:\n{original}");
+        s.AppendLine();
+        s.AppendLine("١. عزل الجذر التربيعي فطرف بمفرده");
+        s.AppendLine($"بعد نقل بقية الحدود للطرف الآخر: √({gLabel}) = {hLabel}");
+        s.AppendLine();
+        s.AppendLine("٢. تربيع الطرفين للتخلص من الجذر");
+        s.AppendLine($"(√({gLabel}))² = ({hLabel})²");
+        s.AppendLine($"{gLabel} = ({hLabel})²");
+        s.AppendLine();
+        s.AppendLine("٣. إعادة ترتيب الحدود على الصورة القياسية");
+
+        double[] coeffs = resultPoly.C;
+        double a2 = degree >= 2 ? coeffs[2] : 0;
+        double b2 = coeffs.Length > 1 ? coeffs[1] : 0;
+        double c2 = coeffs[0];
+
+        var candidateRoots = new List<double>();
+
+        if (degree == 1)
+        {
+            double x = -c2 / b2;
+            s.AppendLine($"{Format.Fraction(b2)}x {Format.Signed(c2)} = 0");
+            s.AppendLine();
+            s.AppendLine("٤. حل المعادلة الناتجة");
+            s.AppendLine($"x = {Format.Fraction(x)}");
+            candidateRoots.Add(x);
+        }
+        else
+        {
+            s.AppendLine($"{Format.Fraction(a2)}x² {Format.Signed(b2)}x {Format.Signed(c2)} = 0");
+            s.AppendLine($"حيث a = {Format.Fraction(a2)}، و b = {Format.Fraction(b2)}، و c = {Format.Fraction(c2)}.");
+            s.AppendLine();
+            s.AppendLine("٤. تطبيق القانون العام لحل المعادلة التربيعية");
+
+            QuadraticResult quad = EquationSolver.SolveQuadratic(a2, b2, c2);
+            s.AppendLine(quad.Steps);
+
+            double delta = b2 * b2 - 4 * a2 * c2;
+            if (delta < 0)
+                return new EquationResult { Result = "لا يوجد حل حقيقي (بعد التربيع نتج مميز سالب)", Steps = s.ToString() };
+
+            double sqrtDelta = Math.Sqrt(delta);
+            candidateRoots.Add((-b2 + sqrtDelta) / (2 * a2));
+            if (delta > 0) candidateRoots.Add((-b2 - sqrtDelta) / (2 * a2));
+        }
+
+        s.AppendLine();
+        s.AppendLine("٥. التحقق من الحلول (استبعاد الحلول الدخيلة)");
+        s.AppendLine("عند تربيع الطرفين قد تظهر حلول دخيلة، لذا نعوّض كل حل فالمعادلة قبل التربيع مباشرة:");
+        s.AppendLine($"√({gLabel}) = {hLabel}");
+        s.AppendLine("(يجب أن يكون الطرف الأيمن غير سالب، لأن نتيجة الجذر التربيعي دائمًا ≥ 0)");
+        s.AppendLine();
+
+        var acceptedRoots = new List<double>();
+        foreach (double x in candidateRoots.Distinct())
+        {
+            double gVal = EvaluatePoly(gPoly, x);
+            double hVal = EvaluatePoly(hPoly, x);
+            double sqrtGVal = Math.Sqrt(Math.Max(gVal, 0));
+            bool valid = hVal >= -1e-6 && Math.Abs(sqrtGVal - hVal) < 1e-4;
+
+            s.AppendLine($"اختبار x = {Format.Fraction(x)}:");
+            s.AppendLine($"الطرف الأيسر: √({Format.Fraction(x)}) ≈ {Format.Number(sqrtGVal)}");
+            s.AppendLine($"الطرف الأيمن: {hLabel} عند هذه القيمة ≈ {Format.Number(hVal)}");
+
+            if (valid)
+            {
+                s.AppendLine("الطرفان متطابقان والطرف الأيمن غير سالب ✓ — هذا حل صحيح.");
+                acceptedRoots.Add(x);
+            }
+            else
+            {
+                s.AppendLine("الطرف الأيمن سالب أو الطرفان غير متطابقين ✗ — هذا حل دخيل ومرفوض.");
+            }
+            s.AppendLine();
+        }
+
+        if (acceptedRoots.Count == 0)
+        {
+            s.AppendLine("لا يوجد حل صحيح بعد استبعاد الحلول الدخيلة.");
+            return new EquationResult { Result = "لا يوجد حل حقيقي", Steps = s.ToString() };
+        }
+
+        string finalText = string.Join("\n", acceptedRoots.Select((x, i) =>
+            acceptedRoots.Count > 1 ? $"x{i + 1} = {Format.Fraction(x)}" : $"x = {Format.Fraction(x)}"));
+
+        s.AppendLine(acceptedRoots.Count > 1 ? "الحلول الصحيحة للمعادلة هي:" : "الحل الصحيح والوحيد للمعادلة هو:");
+        s.AppendLine(finalText);
+
+        return new EquationResult { Result = finalText, Steps = s.ToString() };
+    }
+}
 // ============================================================
 // HIGH DEGREE POLYNOMIAL SOLVER
 // ============================================================
